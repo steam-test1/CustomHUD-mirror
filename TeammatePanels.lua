@@ -111,7 +111,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			SCALE = 1,
 			OPACITY = 0.75,
 			
-			NAME = true,
+			--NAME = true,
 			STATUS = true,
 			EQUIPMENT = true,
 			SPECIAL_EQUIPMENT = true,
@@ -134,6 +134,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--SELECTED_ONLY = true,
 					--UNSELECTED_ONLY = true,
 				},
+			},
+			INTERACTION = {	--Not used for player (at the moment)
+				--HIDE = true,
+				MIN_DURATION = 1
 			},
 		},
 		
@@ -160,6 +164,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--UNSELECTED_ONLY = true,
 				},
 			},
+			INTERACTION = {
+				--HIDE = true,
+				MIN_DURATION = 1
+			},
 		},
 	}
 
@@ -177,12 +185,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._name = PlayerInfoComponent.Name:new(self._panel, self, name_size)
 		self._callsign = PlayerInfoComponent.Callsign:new(self._panel, self, name_size)
 		self._player_status = PlayerInfoComponent.PlayerStatusRadial:new(self._panel, self, size, is_player)
+		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
 		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size * 0.6, size, false)
 		self._special_equipment = PlayerInfoComponent.SpecialEquipment:new(self._panel, self, size)
 		self._carry = PlayerInfoComponent.Carry:new(self._panel, self, is_player and (20 * self._settings.SCALE) or size, is_player)
-		self._interaction = PlayerInfoComponent.Interaction:new(self._panel, self, size, 1)
+		self._interaction = PlayerInfoComponent.Interaction:new(self._panel, self, size, self._settings.INTERACTION and self._settings.INTERACTION.MIN_DURATION or 0)
 		self._interaction:set_layer(10)
-		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
 		
 		self._name:set_enabled("setting", self._settings.NAME)
 		self._callsign:set_enabled("setting", self._settings.CALLSIGN)
@@ -190,6 +198,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._equipment:set_enabled("setting", self._settings.EQUIPMENT)
 		self._special_equipment:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
 		self._carry:set_enabled("setting", self._settings.CARRY)
+		self._interaction:set_enabled("setting", not (self._settings.INTERACTION and self._settings.INTERACTION.HIDE))
+		
+		local interaction_panel_overlap = { self._weapons, self._equipment, self._special_equipment }
+		if not self._is_player then
+			table.insert(interaction_panel_overlap, self._carry)
+		end
+		self._interaction:set_overlapping_panels(interaction_panel_overlap)
 		
 		self:set_alpha(self._settings.OPACITY)
 		self._panel:hide()
@@ -237,6 +252,22 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			w = math.max(w, w_row)
 		end
 		
+		if self._interaction:visible() then
+			self._interaction:set_y(self._player_status:y())
+			
+			if h < self._player_status:bottom() then
+				h = h + self._interaction:h()
+			end
+			w = math.max(w, self._interaction:w())
+			
+			local offset = self._player_status:visible() and (self._player_status:w() + MARGIN) or 0 
+			if self._left_align then
+				self._interaction:set_x(offset)
+			else
+				self._interaction:set_right(w - offset)
+			end
+		end
+		
 		if self._is_player then
 			self._carry:set_center_x(w / 2)
 		end
@@ -249,95 +280,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		if self:set_size(w, h) then
 			managers.hud:arrange_teammate_panels()
-		end
-		
-	
-
-	
-		if false then
-			local MARGIN = 3
-			local w = 0
-			local h = 0
-			
-			local component_order = {}
-			
-			table.insert(component_order, self._player_status)
-			table.insert(component_order, self._weapons)
-			table.insert(component_order, self._equipment)
-			table.insert(component_order, self._special_equipment)
-			if not self._is_player then
-				table.insert(component_order, self._carry)
-			end
-			
-			local start = self._left_align and 1 or #component_order
-			local stop = self._left_align and #component_order or 1
-			local step = self._left_align and 1 or -1
-			for i = start, stop, step do
-				local component = component_order[i]
-				
-				component:set_x(w)
-				if component:visible() then
-					w = w + component:w() + MARGIN
-					h = math.max(h, component:h())
-					
-					local y = 0
-					if self._name:visible() then
-						y = y + self._name:h()
-					end
-					if self._carry:visible() and self._is_player then
-						y = y + self._carry:h()
-					end
-					component:set_y(y)
-				end
-			end
-			
-			if self._name:visible() then
-				h = h + self._name:h()
-				w = math.max(w, self._name:w())
-				self._name:set_y(self._is_player and self._carry:visible() and self._carry:h() or 0)
-				if self._left_align then
-					self._name:set_left(0)
-				else
-					self._name:set_right(w)
-				end
-			end
-			
-			self._callsign:set_center(self._player_status:center())
-			
-			if not self._player_status:visible() and self._callsign:visible() then
-				h = math.max(h, self._callsign:h())
-				w = w + self._callsign:w() + MARGIN
-				self._callsign:set_y(self._is_player and self._carry:visible() and self._carry:h() or 0)
-				if self._left_align then
-					self._callsign:set_left(0)
-					self._name:set_left(self._callsign:right())
-				else
-					self._callsign:set_right(self._name:left())
-				end
-			end
-			
-			if self._carry:visible() and self._is_player then
-				h = h + self._carry:h()
-				w = math.max(w, self._carry:w())
-				self._carry:set_center_x(w / 2)
-			end
-			
-			if self._interaction:visible() then
-				local offset = 0
-				if self._player_status:visible() then
-					offset = self._player_status:w()
-				end
-				self._interaction:set_x(offset)
-				self._interaction:set_y(self._player_status:y())
-				h = math.max(h, self._interaction:h() + self._player_status:y())
-				w = math.max(w, self._interaction:right())
-			end
-			
-			if self._panel:w() ~= w or self._panel:h() ~= h then
-				self._panel:set_w(w)
-				self._panel:set_h(h)
-				managers.hud:arrange_teammate_panels()
-			end
 		end
 	end
 
@@ -369,7 +311,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			table.insert(top_components, self._name)
 			table.insert(self._component_layout, top_components)
 			
-			local center_components = { self._player_status, self._interaction, self._weapons, self._equipment, self._special_equipment }
+			local center_components = { self._player_status, self._weapons, self._equipment, self._special_equipment }
 			if not self._is_player then
 				table.insert(center_components, self._carry)
 			end
@@ -1264,8 +1206,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			valign = "scale",
 			vertical = "center",
 			align = "right",
-			h = self._ammo_panel:h() * 0.4,
-			font_size = self._ammo_panel:h() * 0.4,
+			h = self._ammo_panel:h() * 0.45,
+			font_size = self._ammo_panel:h() * 0.45,
 			font = tweak_data.hud_players.ammo_font
 		})
 		ammo_total:set_center_y((self._ammo_panel:h() + ammo_mag:h()) / 2)
@@ -1993,11 +1935,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		PlayerInfoComponent.Interaction.super.init(self, panel, owner, "interaction", 100, height)
 		
 		self._min_duration = min_duration or 0
+		self._overlapping_panels = {}
 		
 		self._bg = self._panel:rect({
 			name = "bg",
 			color = Color.black,
-			alpha = 1.0,
+			alpha = 0.25,
 			valign = "grow",
 			halign = "grow",
 			layer = -1,
@@ -2071,11 +2014,24 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.Interaction:arrange()
 		local h = self._panel:h()
-		local _, _, w, _ = self._text:text_rect()
+		local _, _, text_w, _ = self._text:text_rect()
 		
-		if self:set_size(w * 1.5, h) then
+		local overlap_w = 0
+		for _, panel in ipairs(self._overlapping_panels) do
+			if panel:visible() then
+				overlap_w = overlap_w + panel:w()
+			end
+		end
+		
+		local w = math.max(text_w * 1.5, overlap_w)
+		
+		if self:set_size(w, h) then
 			self._owner:arrange()
 		end
+	end
+	
+	function PlayerInfoComponent.Interaction:set_overlapping_panels(panels)
+		self._overlapping_panels = panels
 	end
 	
 	function PlayerInfoComponent.Interaction:start(id, timer)
@@ -2088,6 +2044,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._text:set_color(Color.white)
 			self._text:set_text(string.format("%s (%.1fs)", utf8.to_upper(text), timer))
 			self:set_enabled("active", true)
+			for _, panel in ipairs(self._overlapping_panels) do
+				panel:set_alpha(0)
+			end
 			self:arrange()
 			
 			self._panel:animate(callback(self, self, "_animate"), timer)
@@ -2102,7 +2061,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Interaction:_animate(panel, timer)
-	
 		local progress_bar_goal_width = self._progress_bar_bg:w()
 		self._progress_bar:set_x(self._progress_bar_bg:x())
 		self._progress_bar_outline:set_h(self._progress_bar_bg:w() * 1.05)
@@ -2154,12 +2112,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		t = 0
 		
 		while t < T2 do
+			for _, panel in ipairs(self._overlapping_panels) do
+				panel:set_alpha(t/T2)
+			end
 			self:set_alpha(1-t/T2)
+			
 			t = t + coroutine.yield()
 		end
 		
+		self:set_alpha(0)
+			for _, panel in ipairs(self._overlapping_panels) do
+				panel:set_alpha(1)
+			end
 		self._text:set_text("n/a")
 		self:set_enabled("active", false)
+		
 		self:arrange()
 	end
 	
@@ -2328,6 +2295,8 @@ end
 
 
 if RequiredScript == "lib/managers/hudmanagerpd2" then
+
+	HUDManager.CUSTOM_TEAMMATE_PANELS = true	--External flag
 
 	local update_original = HUDManager.update
 	local add_weapon_original = HUDManager.add_weapon
