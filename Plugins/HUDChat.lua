@@ -7,7 +7,9 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	end
 	
 	function HUDManager:setup_endscreen_hud(...)
-		self._hud_chat_ingame:disconnect_mouse()
+		if HUDChat.MOUSE_SUPPORT then
+			self._hud_chat_ingame:disconnect_mouse()
+		end
 		return setup_endscreen_hud_original(self, ...)
 	end
 	
@@ -15,10 +17,11 @@ end
 
 if RequiredScript == "lib/managers/hud/hudchat" then
 	
-	HUDChat.LINE_HEIGHT = 17
-	HUDChat.WIDTH = 350
-	HUDChat.MAX_OUTPUT_LINES = 10
-	HUDChat.MAX_INPUT_LINES = 5
+	HUDChat.LINE_HEIGHT = 15		--Size of each line in chat (and hence the text size)
+	HUDChat.WIDTH = 350				--Width of the chat window
+	HUDChat.MAX_OUTPUT_LINES = 5	--Number of chat lines to show
+	HUDChat.MAX_INPUT_LINES = 5	--Number of lines of text you can type
+	HUDChat.MOUSE_SUPPORT = false	--For scolling and stuff. Experimental, you have been warned
 	
 	local enter_key_callback_original = HUDChat.enter_key_callback
 	local esc_key_callback_original = HUDChat.esc_key_callback
@@ -48,10 +51,14 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			w = HUDChat.WIDTH,
 		})
 		
-		if HUDManager.CUSTOM_TEAMMATE_PANEL then
+		if HUDManager.CUSTOM_TEAMMATE_PANELS then
 			--Custom chat box position
 			self._panel:set_right(self._parent:w())
 			self._panel:set_bottom(self._parent:h())
+			
+			if HUDManager.HAS_MINIMAP then
+				self._panel:move(0, -HUDMiniMap.SIZE[2])
+			end
 		else
 			--Default chat box position
 			self._panel:set_left(0)
@@ -529,25 +536,35 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 
 	function HUDChat:_on_focus(...)
-		if not self._focus then
-			managers.mouse_pointer:use_mouse({
-				mouse_move = callback(self, self, "_mouse_move"),
-				mouse_press = callback(self, self, "_mouse_press"),
-				mouse_release = callback(self, self, "_mouse_release"),
-				mouse_click = callback(self, self, "_mouse_click"),
-				id = "ingame_chat_mouse",
-			})
-			return _on_focus_original(self, ...)
+		if not self._mouse_connected and HUDChat.MOUSE_SUPPORT then
+			self:connect_mouse()
 		end
+		
+		return _on_focus_original(self, ...)
 	end
 	
 	function HUDChat:_loose_focus(...)
-		self:disconnect_mouse()
+		if HUDChat.MOUSE_SUPPORT then
+			self:disconnect_mouse()
+		end
+		
 		return _loose_focus_original(self, ...)
 	end
 	
+	function HUDChat:connect_mouse()
+		self._mouse_connected = true
+		
+		managers.mouse_pointer:use_mouse({
+			mouse_move = callback(self, self, "_mouse_move"),
+			mouse_press = callback(self, self, "_mouse_press"),
+			mouse_release = callback(self, self, "_mouse_release"),
+			mouse_click = callback(self, self, "_mouse_click"),
+			id = "ingame_chat_mouse",
+		})
+	end
+	
 	function HUDChat:disconnect_mouse()
-		if self._focus then
+		if self._mouse_connected then
 			managers.mouse_pointer:remove_mouse("ingame_chat_mouse")
 		end
 	end
@@ -622,5 +639,5 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		local new_line_offset = math.round((1 - ((y - scroll_bar_up:h() - 2) / positon_height_area)) * self._total_message_lines)
 		self:_change_line_offset(new_line_offset - self._current_line_offset)
 	end
-		
+	
 end
