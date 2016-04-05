@@ -105,20 +105,25 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	HUDTeammateCustom = HUDTeammateCustom or class(PlayerInfoComponent.Base)
 
 	HUDTeammateCustom.SETTINGS = {
-		MAX_WEAPONS = 2,	--Number of carried guns
+		--SHOW_DEBUG_BACKGROUND = true,	--Show the extent of each panel as a colored background
+		MAX_WEAPONS = 2,	--Number of carried guns (...just don't...)
 		
 		PLAYER = {
-			SCALE = 1,
-			OPACITY = 0.75,
+			SCALE = 1,			--Scale of all elements of the panel
+			OPACITY = 0.75,	--Transparency/alpha of panel (1 is solid, 0 is invisible)
 			
-			--NAME = true,
-			STATUS = true,
-			EQUIPMENT = true,
-			SPECIAL_EQUIPMENT = true,
-			CALLSIGN = true,
-			CARRY = true,
+			NAME = true,	--Show name
+			RANK = true,	--Show infamy/level
+			CHARACTER = true,	--Show character name
+			STATUS = true,	--Show health/armor/condition etc.
+			EQUIPMENT = true,	--Show throwables, cable ties and deployables
+			SPECIAL_EQUIPMENT = true,	--Show special equipment/tools (keycards etc.)
+			CALLSIGN = true,	--Show the callsign and voice chat icon
+			CARRY = true,	--Show currently carried bag
 			WEAPON = {
-				--Pick *one* setting of each or results are undefined
+				--Show/hide various elements of the weapons panels.
+				--HIDE option hides the element. SELECTED_ONLY shows only if the weapon is currently selected, UNSELECTED_ONLY the reverse
+				--Pick *one* setting for each element or results are undefined
 				ICON = {
 					HIDE = true,
 					--SELECTED_ONLY = true,
@@ -135,24 +140,28 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--UNSELECTED_ONLY = true,
 				},
 			},
-			INTERACTION = {	--Not used for player (at the moment)
+			--Shows the interaction activity, time and progress (only used by team mates, included for reference)
+			--HIDE hides the interaction bar, MIN_DURATION sets a minimum duration in seconds required for it to show an activity
+			INTERACTION = {	
 				--HIDE = true,
-				MIN_DURATION = 1
+				MIN_DURATION = 1,
 			},
 		},
 		
 		TEAMMATE = {
+			--For descriptions, see player panel settings
 			SCALE = 0.8,
 			OPACITY = 0.75,
 			
 			NAME = true,
+			RANK = true,
+			CHARACTER = true,
 			STATUS = true,
 			EQUIPMENT = true,
 			SPECIAL_EQUIPMENT = true,
 			CALLSIGN = true,
 			CARRY = true,
 			WEAPON = {
-				--Pick *one* setting of each or results are undefined
 				ICON = {
 					--HIDE = true,
 					SELECTED_ONLY = true,
@@ -182,7 +191,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local name_size = 20 * self._settings.SCALE
 		HUDTeammateCustom.super.init(self, panel, nil, "teammate_panel_" .. tostring(id), 0, size)
 		
+		self._debug_bg = self._panel:rect({
+			name = "debug_bg",
+			halign = "grow",
+			valign = "grow",
+			alpha = 0.2,
+			visible = HUDTeammateCustom.SETTINGS.SHOW_DEBUG_BACKGROUND,
+		})
+		
 		self._name = PlayerInfoComponent.Name:new(self._panel, self, name_size)
+		self._rank = PlayerInfoComponent.Rank:new(self._panel, self, name_size)
+		self._character = PlayerInfoComponent.Character:new(self._panel, self, name_size)
 		self._callsign = PlayerInfoComponent.Callsign:new(self._panel, self, name_size)
 		self._player_status = PlayerInfoComponent.PlayerStatusRadial:new(self._panel, self, size, is_player)
 		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
@@ -193,6 +212,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._interaction:set_layer(10)
 		
 		self._name:set_enabled("setting", self._settings.NAME)
+		self._rank:set_enabled("setting", self._settings.RANK)
+		self._character:set_enabled("setting", self._settings.CHARACTER)
 		self._callsign:set_enabled("setting", self._settings.CALLSIGN)
 		self._player_status:set_enabled("setting", self._settings.STATUS)
 		self._equipment:set_enabled("setting", self._settings.EQUIPMENT)
@@ -272,7 +293,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._carry:set_center_x(w / 2)
 		end
 		
-		if self._player_status:visible() then
+		if not (self._name:visible() or self._rank:visible() or self._character:visible()) and self._player_status:visible() then
 			self._callsign:set_center(self._player_status:center())
 		end
 		
@@ -293,6 +314,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._equipment:set_enabled("ai", self._human_layout)
 			self._special_equipment:set_enabled("ai", self._human_layout)
 			self._carry:set_enabled("ai", self._human_layout)
+			self._character:set_enabled("ai", self._human_layout)
+			self._rank:set_enabled("ai", self._human_layout)
 			--self._callsign:set_enabled("ai", self._human_layout)
 			self:teammate_progress(false, "", 0, false)
 			
@@ -305,10 +328,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 			
 			local top_components = { }
-			if not self._player_status:visible() then
+			if self._name:visible() or self._rank:visible() or self._character:visible() or not self._player_status:visible() then
 				table.insert(top_components, self._callsign)
 			end
 			table.insert(top_components, self._name)
+			table.insert(top_components, self._rank)
+			table.insert(top_components, self._character)
 			table.insert(self._component_layout, top_components)
 			
 			local center_components = { self._player_status, self._weapons, self._equipment, self._special_equipment }
@@ -411,10 +436,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function HUDTeammateCustom:set_info_meter(data)
 		--printf("(DEBUG) set_info_meter: c: %s, t: %s, m: %s\n", tostring(data.current), tostring(data.total), tostring(data.max))
+		--Used to set hysteria stacks. Unused in this HUD at the moment
 	end
 	
 	function HUDTeammateCustom:set_absorb_active(amount)
-		--printf("(DEBUG) set_absorb_active: %s\n", tostring(amount))
 		self:call_listeners("absorb_active", amount)
 	end
 	
@@ -444,7 +469,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function HUDTeammateCustom:set_weapon_selected(index, hud_icon)
 		if self._id ~= 4 then
-			printf("(DEBUG) set_weapon_selected (%d): %s\n", self._id, tostring(index))
+			--printf("(DEBUG) set_weapon_selected (%d): %s\n", self._id, tostring(index))
 		end
 		self:call_listeners("weapon_selected", index)
 	end
@@ -520,7 +545,23 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:set_callsign(id)
+		self._debug_bg:set_color((tweak_data.chat_colors[id] or Color.white):with_alpha(1))
+		
+		if self._is_player then
+			local local_peer = managers.network:session():local_peer()
+			self:set_character(managers.criminals:character_name_by_peer_id(local_peer:id()))
+			self:set_rank(managers.experience:current_rank(), managers.experience:current_level())
+		end
+	
 		self:call_listeners("callsign", id)
+	end
+	
+	function HUDTeammateCustom:set_rank(infamy, level)
+		self:call_listeners("rank", infamy, level)
+	end
+	
+	function HUDTeammateCustom:set_character(character)
+		self:call_listeners("character", character)
 	end
 	
 	function HUDTeammateCustom:set_cheater(...)
@@ -530,14 +571,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function HUDTeammateCustom:set_peer_id(peer_id)
 		self._peer_id = peer_id
 		
-		managers.hud:_parse_outfit_string(self._id, peer_id)
-		
-		--local peer = managers.network:session() and managers.network:session():peer(peer_id)
-		--if peer then
-		--	self:_set_rank(peer:level(), peer:rank())
-		--end
-		
-		--self:recheck_outfit_string()
+		if peer_id then
+			local peer = managers.network:session():peer(peer_id)
+			managers.hud:_parse_outfit_string(self._id, peer_id)
+			self:set_character(managers.criminals:character_name_by_peer_id(peer_id))
+			self:set_rank(peer:rank(), peer:level())
+		end
 	end
 
 	function HUDTeammateCustom:set_ai(status)
@@ -1000,6 +1039,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 
 
+	--Composite class for the Radial player information for organizational purposes
 	PlayerInfoComponent.PlayerStatusRadial = PlayerInfoComponent.PlayerStatusRadial or class(PlayerInfoComponent.Base)
 
 	function PlayerInfoComponent.PlayerStatusRadial:init(panel, owner, size, is_player)
@@ -1085,7 +1125,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._animating_voice_com = false
 	end
 
+	
+	--TODO: Possibly unify name, rank and character into wrapper or single element for organizational purposes
 
+	
 	PlayerInfoComponent.Name = PlayerInfoComponent.Name or class(PlayerInfoComponent.Base)
 
 	function PlayerInfoComponent.Name:init(panel, owner, height)
@@ -1126,7 +1169,97 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._text:set_color((tweak_data.chat_colors[id] or Color.white):with_alpha(1))
 	end
 
+	
+	PlayerInfoComponent.Character = PlayerInfoComponent.Character or class(PlayerInfoComponent.Base)
 
+	function PlayerInfoComponent.Character:init(panel, owner, height)
+		PlayerInfoComponent.Character.super.init(self, panel, owner, "character", 0, height)
+		
+		self._text = self._panel:text({
+			name = "character",
+			color = Color.white,
+			halign = "grow",
+			align = "left",
+			vertical = "center",
+			h = height,
+			w = 0,
+			font_size = height * 0.95,
+			font = tweak_data.hud_players.name_font,
+		})
+		
+		self._owner:register_listener("Character", { "callsign" }, callback(self, self, "set_id"), false)
+		self._owner:register_listener("Character", { "character" }, callback(self, self, "set_character"), false)
+	end
+
+	function PlayerInfoComponent.Character:destroy()
+		self._owner:unregister_listener("Character", { "character", "callsign" })
+		
+		PlayerInfoComponent.Character.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.Character:set_character(character)
+		local name = character and ("(" .. managers.localization:text("menu_" .. character) .. ")") or ""
+		
+		self._text:set_text(name)
+		local _, _, w, _ = self._text:text_rect()
+		
+		if self:set_size(w, self._panel:h()) then
+			self._owner:arrange()
+		end
+	end
+	
+	function PlayerInfoComponent.Character:set_id(id)
+		self._text:set_color((tweak_data.chat_colors[id] or Color.white):with_alpha(1))
+	end
+	
+	
+	PlayerInfoComponent.Rank = PlayerInfoComponent.Rank or class(PlayerInfoComponent.Base)
+
+	function PlayerInfoComponent.Rank:init(panel, owner, height)
+		PlayerInfoComponent.Rank.super.init(self, panel, owner, "rank", 0, height)
+		
+		self._text = self._panel:text({
+			name = "rank",
+			color = Color.white,
+			halign = "grow",
+			align = "left",
+			vertical = "center",
+			h = height,
+			w = 0,
+			font_size = height * 0.95,
+			font = tweak_data.hud_players.name_font,
+		})
+		
+		self._owner:register_listener("Rank", { "callsign" }, callback(self, self, "set_id"), false)
+		self._owner:register_listener("Rank", { "rank" }, callback(self, self, "set_rank"), false)
+	end
+
+	function PlayerInfoComponent.Rank:destroy()
+		self._owner:unregister_listener("Rank", { "rank", "callsign" })
+		
+		PlayerInfoComponent.Rank.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.Rank:set_rank(infamy, level)
+		local text = level and tostring(level) or ""
+		
+		if infamy and infamy > 0 then
+			text = managers.experience:rank_string(infamy) .. "-" .. text
+		end
+	
+		self._text:set_text(text)
+		local _, _, w, _ = self._text:text_rect()
+		
+		if self:set_size(w, self._panel:h()) then
+			self._owner:arrange()
+		end
+	end
+	
+	function PlayerInfoComponent.Rank:set_id(id)
+		self._text:set_color((tweak_data.chat_colors[id] or Color.white):with_alpha(1))
+	end
+
+	
 	PlayerInfoComponent.Weapon = PlayerInfoComponent.Weapon or class(PlayerInfoComponent.Base)
 
 	function PlayerInfoComponent.Weapon:init(panel, owner, slot, height, settings)
@@ -2461,26 +2594,28 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	function HUDManager:set_teammate_weapon_firemode_burst(selection_index)
 		self:set_teammate_weapon_firemode(HUDManager.PLAYER_PANEL, selection_index, "burst")
 	end
-
-	function HUDManager:_parse_outfit_string(panel_id, peer_id)
-		local local_peer_id = managers.network:session():local_peer():id()
 	
-		if not peer_id or peer_id == local_peer_id then return end
-		
-		--local outfit = managers.blackmarket:unpack_outfit_from_string(managers.blackmarket:outfit_string())) --LOCAL PLAYER
-		local peer = managers.network:session():peer(peer_id)
-		local outfit = peer and peer:blackmarket_outfit()
-		
-		if not outfit then
-			printf("ERROR (_parse_outfit_string): NO OUTFIT STRING FOR PEER %s\n", tostring(peer_id))
-			return
+	function HUDManager:_parse_outfit_string(panel_id, peer_id)
+		if peer_id == managers.network:session():local_peer():id() then
+			--local outfit = managers.blackmarket:unpack_outfit_from_string(managers.blackmarket:outfit_string())
+			--Weapons handled by HUDManager:add_weapon()
+		else
+			local peer = managers.network:session():peer(peer_id)
+			local outfit = peer and peer:blackmarket_outfit()
+			
+			if outfit then
+				for selection, data in ipairs({ outfit.secondary, outfit.primary }) do
+					local weapon_id = managers.weapon_factory:get_weapon_id_by_factory_id(data.factory_id)
+					local silencer = managers.weapon_factory:has_perk("silencer", data.factory_id, data.blueprint)
+					self:set_teammate_weapon(panel_id, selection, weapon_id, silencer)
+				end
+			end
 		end
+	
+
 		
-		for selection, data in ipairs({ outfit.secondary, outfit.primary }) do
-			local weapon_id = managers.weapon_factory:get_weapon_id_by_factory_id(data.factory_id)
-			local silencer = managers.weapon_factory:has_perk("silencer", data.factory_id, data.blueprint)
-			self:set_teammate_weapon(panel_id, selection, weapon_id, silencer)
-		end
+		
+
 		
 		--self:_set_armor(outfit.armor)
 		--self:_set_melee(outfit.melee_weapon)
