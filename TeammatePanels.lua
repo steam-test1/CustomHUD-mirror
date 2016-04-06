@@ -674,16 +674,35 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			layer = self._radial:layer() + 1,
 		})
 		
+		self._downs_counter = self._panel:text({
+			name = "downs",
+			text = "0",
+			color = Color.white,
+			align = "right",
+			vertical = "bottom",
+			h = size * 0.4,
+			w = size * 0.4,
+			font_size = size * 0.4,
+			font = tweak_data.hud_players.name_font,
+			layer = self._radial:layer() + 2,
+			visible = HUDManager.DOWNS_COUNTER_PLUGIN or false,
+		})
+		self._downs_counter:set_bottom(size)
+		self._downs_counter:set_right(size)
+		
 		self._stored_health = 0
 		self._stored_health_max = 0
+		self._downs = 0
 		
 		self._teammate_panel:register_listener("HealthRadial", { "health" }, callback(self, self, "set_health"), false)
 		self._teammate_panel:register_listener("HealthRadial", { "stored_health" }, callback(self, self, "set_stored_health"), false)
 		self._teammate_panel:register_listener("HealthRadial", { "stored_health_max" }, callback(self, self, "set_stored_health_max"), false)
+		self._teammate_panel:register_listener("HealthRadial", { "set_downs" }, callback(self, self, "set_downs"), false)
+		self._teammate_panel:register_listener("HealthRadial", { "increment_downs" }, callback(self, self, "increment_downs"), false)
 	end
 	
 	function PlayerInfoComponent.HealthRadial:destroy()
-		self._teammate_panel:unregister_listener("HealthRadial", { "health", "stored_health", "stored_health_max" })
+		self._teammate_panel:unregister_listener("HealthRadial", { "health", "stored_health", "stored_health_max", "set_downs", "increment_downs" })
 		
 		PlayerInfoComponent.HealthRadial.super.destroy(self)
 	end
@@ -710,7 +729,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._stored_health_max = amount
 		self:set_stored_health(self._stored_health)
 	end
-
+	
+	function PlayerInfoComponent.HealthRadial:set_downs(amount)
+		self._downs = amount
+		
+		self._text:set_text(tostring(amount))
+	end
+	
+	function PlayerInfoComponent.HealthRadial:increment_downs()
+		self:set_downs(self._downs + 1)
+	end
+	
 
 	PlayerInfoComponent.ArmorRadial = PlayerInfoComponent.ArmorRadial or class(PlayerInfoComponent.Base)
 
@@ -1038,7 +1067,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		--self._radial:set_color(Color(r, 1, 1))
 	end
 
-
+	
 	--Composite class for the Radial player information for organizational purposes
 	PlayerInfoComponent.PlayerStatusRadial = PlayerInfoComponent.PlayerStatusRadial or class(PlayerInfoComponent.Base)
 
@@ -1708,6 +1737,15 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._horizontal = horizontal
 		self._equipment_types = { "deployables", "cable_ties", "throwables" }
 		
+		local bg = self._panel:rect({
+			name = "bg",
+			color = Color.black,
+			alpha = 0.25,
+			halign = "grow",
+			valign = "grow",
+			layer = -1,
+		})
+		
 		for i, name in ipairs(self._equipment_types) do
 			local panel = self._panel:panel({
 				name = name,
@@ -1734,16 +1772,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				w = panel:w(),
 				h = panel:h()
 			})
-			
-			local bg = panel:rect({
-				name = "bg",
-				color = Color.black,
-				alpha = 0.25,
-				h = panel:h(),
-				w = panel:w(),
-				layer = -1,
-			})
 		end
+		
+		self:set_enabled("active", false)
 		
 		self._owner:register_listener("Equipment", { "throwable" }, callback(self, self, "set_throwable"), false)
 		self._owner:register_listener("Equipment", { "throwable_amount" }, callback(self, self, "set_throwable_amount"), false)
@@ -1780,7 +1811,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 		end
 		
-		if self:set_size(w, h) then
+		local changed = self:set_enabled("active", i > 0)
+		changed = changed or self:set_size(w, h)
+		
+		if changed then
 			self._owner:arrange()
 		end
 	end
