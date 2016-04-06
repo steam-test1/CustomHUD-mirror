@@ -1,5 +1,387 @@
-if RequiredScript == "lib/managers/hudmanagerpd2" then
+--This file is mostly legacy stuff, things to be rewritten and ported into new version. It can still be used safely, but is optional and may not be the best choice
 
+
+if RequiredScript == "lib/managers/hud/hudassaultcorner" then
+
+	local init_original = HUDAssaultCorner.init
+
+	function HUDAssaultCorner:init(...)
+		init_original(self, ...)
+		
+		local assault_panel = self._hud_panel:child("assault_panel")
+		assault_panel:set_right(self._hud_panel:w() / 2 + 133)
+		local buffs_panel = self._hud_panel:child("buffs_panel")
+		buffs_panel:set_x(assault_panel:left() + self._bg_box:left() - 3 - 200)
+		
+		local point_of_no_return_panel = self._hud_panel:child("point_of_no_return_panel")
+		point_of_no_return_panel:set_right(self._hud_panel:w() / 2 + 133)
+		
+		local casing_panel = self._hud_panel:child("casing_panel")
+		casing_panel:set_right(self._hud_panel:w() / 2 + 133)
+		
+		local hostages_panel = self._hud_panel:child("hostages_panel")
+		hostages_panel:set_alpha(0)
+	end
+
+	--[[
+	function HUDAssaultCorner:init(hud, full_hud)
+		self._hud_panel = hud.panel
+		self._full_hud_panel = full_hud.panel
+		self._casing_color = Color.white
+		if self._hud_panel:child("assault_panel") then
+			self._hud_panel:remove(self._hud_panel:child("assault_panel"))
+		end
+
+		local size = 200
+		local assault_panel = self._hud_panel:panel({
+			visible = false,
+			name = "assault_panel",
+			w = 270,
+			h = 100
+		})
+		assault_panel:set_center(self._hud_panel:center())
+		assault_panel:set_top(0)
+		self._assault_mode = "normal"
+		self._assault_color = Color(1, 1, 1, 0)
+		self._vip_assault_color = Color(1, 1, 0.5019608, 0)
+		self._current_assault_color = self._assault_color
+
+		local icon_assaultbox = assault_panel:bitmap({
+			halign = "right",
+			valign = "top",
+			color = Color.yellow,
+			name = "icon_assaultbox",
+			blend_mode = "add",
+			visible = true,
+			layer = 0,
+			texture = "guis/textures/pd2/hud_icon_assaultbox",
+			w = 24,
+			h = 24
+		})
+		icon_assaultbox:set_right(icon_assaultbox:parent():w())
+		self._bg_box = HUDBGBox_create(assault_panel, {
+			w = 242,
+			h = 38,
+		}, {
+			color = self._assault_color,
+			blend_mode = "add"
+		})
+		self._bg_box:set_right(icon_assaultbox:left() - 3)
+		local yellow_tape = assault_panel:rect({
+			visible = false,
+			name = "yellow_tape",
+			h = tweak_data.hud.location_font_size * 1.5,
+			w = size * 3,
+			color = Color(1, 0.8, 0),
+			layer = 1
+		})
+		yellow_tape:set_center(10, 10)
+		yellow_tape:set_rotation(30)
+		yellow_tape:set_blend_mode("add")
+		assault_panel:panel({
+			name = "text_panel",
+			layer = 1,
+			w = yellow_tape:w()
+		}):set_center(yellow_tape:center())
+		if self._hud_panel:child("point_of_no_return_panel") then
+			self._hud_panel:remove(self._hud_panel:child("point_of_no_return_panel"))
+		end
+
+		--TODO: Fix text alignment
+		local size = 300
+		local point_of_no_return_panel = self._hud_panel:panel({
+			visible = false,
+			name = "point_of_no_return_panel",
+			w = size,
+			h = 40
+		})
+		point_of_no_return_panel:set_center(self._hud_panel:center())
+		point_of_no_return_panel:set_top(0)
+		self._noreturn_color = Color(1, 1, 0, 0)
+		local icon_noreturnbox = point_of_no_return_panel:bitmap({
+			halign = "right",
+			valign = "top",
+			color = self._noreturn_color,
+			name = "icon_noreturnbox",
+			blend_mode = "add",
+			visible = true,
+			layer = 0,
+			texture = "guis/textures/pd2/hud_icon_noreturnbox",
+			w = 24,
+			h = 24
+		})
+		icon_noreturnbox:set_right(icon_noreturnbox:parent():w())
+		self._noreturn_bg_box = HUDBGBox_create(point_of_no_return_panel, {
+			w = 242,
+			h = 38,
+		}, {
+			color = self._noreturn_color,
+			blend_mode = "add"
+		})
+		self._noreturn_bg_box:set_right(icon_noreturnbox:left() - 3)
+		local w = point_of_no_return_panel:w()
+		local size = 200 - tweak_data.hud.location_font_size
+		local point_of_no_return_text = self._noreturn_bg_box:text({
+			name = "point_of_no_return_text",
+			text = "",
+			blend_mode = "add",
+			layer = 1,
+			valign = "center",
+			align = "right",
+			vertical = "center",
+			color = self._noreturn_color,
+			font_size = tweak_data.hud_corner.noreturn_size,
+			font = tweak_data.hud_corner.assault_font
+		})
+		point_of_no_return_text:set_text(utf8.to_upper(managers.localization:text("hud_assault_point_no_return_in", {time = ""})))
+		point_of_no_return_text:set_size(self._noreturn_bg_box:w(), self._noreturn_bg_box:h())
+		local point_of_no_return_timer = self._noreturn_bg_box:text({
+			name = "point_of_no_return_timer",
+			text = "",
+			blend_mode = "add",
+			layer = 1,
+			valign = "center",
+			align = "center",
+			vertical = "center",
+			color = self._noreturn_color,
+			font_size = tweak_data.hud_corner.noreturn_size,
+			font = tweak_data.hud_corner.assault_font
+		})
+		local _, _, w, h = point_of_no_return_timer:text_rect()
+		point_of_no_return_timer:set_size(46, self._noreturn_bg_box:h())
+		point_of_no_return_timer:set_right(point_of_no_return_timer:parent():w())
+		point_of_no_return_text:set_right(math.round(point_of_no_return_timer:left()))
+	end
+
+	function HUDAssaultCorner:sync_start_assault(data)
+		if self._point_of_no_return then
+			return
+		end
+
+		if managers.job:current_difficulty_stars() > 0 then
+			local ids_risk = Idstring("risk")
+			self:_start_assault({
+				"hud_assault_assault",
+				"hud_assault_end_line",
+				ids_risk,
+				"hud_assault_end_line",
+				"hud_assault_assault",
+				"hud_assault_end_line",
+				ids_risk,
+				"hud_assault_end_line"
+			})
+		else
+			self:_start_assault({
+				"hud_assault_assault",
+				"hud_assault_end_line",
+				"hud_assault_assault",
+				"hud_assault_end_line",
+				"hud_assault_assault",
+				"hud_assault_end_line"
+			})
+		end
+	end
+
+	function HUDAssaultCorner:show_point_of_no_return_timer()
+		local delay_time = self._assault and 1.2 or 0
+		self:_end_assault()
+		local point_of_no_return_panel = self._hud_panel:child("point_of_no_return_panel")
+		point_of_no_return_panel:stop()
+		point_of_no_return_panel:animate(callback(self, self, "_animate_show_noreturn"), delay_time)
+		self._point_of_no_return = true
+	end
+
+	function HUDAssaultCorner:hide_point_of_no_return_timer()
+		self._noreturn_bg_box:stop()
+		self._hud_panel:child("point_of_no_return_panel"):set_visible(false)
+		self._point_of_no_return = false
+	end
+
+	function HUDAssaultCorner:set_control_info(...) end
+	function HUDAssaultCorner:show_casing(...) end
+	function HUDAssaultCorner:hide_casing(...) end
+	]]
+end
+	
+if RequiredScript == "lib/managers/hud/hudobjectives" then
+	
+	HUDObjectives._TEXT_MARGIN = 8
+
+	function HUDObjectives:init(hud)
+		if hud.panel:child("objectives_panel") then
+			hud.panel:remove(self._panel:child("objectives_panel"))
+		end
+
+		self._panel = hud.panel:panel({
+			visible = false,
+			name = "objectives_panel",
+			h = 100,
+			w = 500,
+			x = 60,
+			valign = "top"
+		})
+			
+		self._bg_box = HUDBGBox_create(self._panel, {
+			w = 500,
+			h = 38,
+		})
+		
+		self._objective_text = self._bg_box:text({
+			name = "objective_text",
+			visible = false,
+			layer = 2,
+			color = Color.white,
+			text = "",
+			font_size = tweak_data.hud.active_objective_title_font_size,
+			font = tweak_data.hud.medium_font_noshadow,
+			align = "left",
+			vertical = "center",
+			w = self._bg_box:w(),
+			x = HUDObjectives._TEXT_MARGIN
+		})
+		
+		self._amount_text = self._bg_box:text({
+			name = "amount_text",
+			visible = false,
+			layer = 2,
+			color = Color.white,
+			text = "",
+			font_size = tweak_data.hud.active_objective_title_font_size,
+			font = tweak_data.hud.medium_font_noshadow,
+			align = "left",
+			vertical = "center",
+			w = self._bg_box:w(),
+			x = HUDObjectives._TEXT_MARGIN
+		})
+	end
+
+	function HUDObjectives:activate_objective(data)
+		self._active_objective_id = data.id
+		
+		self._panel:set_visible(true)
+		self._objective_text:set_text(utf8.to_upper(data.text))
+		self._objective_text:set_visible(true)
+		self._amount_text:set_visible(false)
+		
+		local width = self:_get_text_width(self._objective_text)
+		
+		if data.amount then
+			self:update_amount_objective(data)
+			self._amount_text:set_left(width + HUDObjectives._TEXT_MARGIN)
+			width = width + self:_get_text_width(self._amount_text)
+		else
+			self._amount_text:set_text("")
+		end
+
+		self._bg_box:set_w(HUDObjectives._TEXT_MARGIN * 2 + width)
+		self._bg_box:stop()
+		--self._amount_text:animate(callback(self, self, "_animate_new_objective"))
+		--self._objective_text:animate(callback(self, self, "_animate_new_objective"))
+		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
+	end
+
+	function HUDObjectives:update_amount_objective(data)
+		if data.id ~= self._active_objective_id then
+			return
+		end
+
+		self._amount_text:set_visible(true)
+		self._amount_text:set_text(": " .. (data.current_amount or 0) .. "/" .. data.amount)
+		self._amount_text:set_x(self:_get_text_width(self._objective_text) + HUDObjectives._TEXT_MARGIN)
+		self._bg_box:set_w(HUDObjectives._TEXT_MARGIN * 2 + self:_get_text_width(self._objective_text) + self:_get_text_width(self._amount_text))
+		self._bg_box:stop()
+		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
+	end
+
+	function HUDObjectives:remind_objective(id)
+		if id ~= self._active_objective_id then
+			return
+		end
+		
+		self._bg_box:stop()
+		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
+	end
+
+	function HUDObjectives:complete_objective(data)
+		if data.id ~= self._active_objective_id then
+			return
+		end
+
+		self._amount_text:set_visible(false)
+		self._objective_text:set_visible(false)
+		self._panel:set_visible(false)
+		self._bg_box:set_w(0)
+	end
+
+	function HUDObjectives:_animate_new_objective(object)
+		local TOTAL_T = 2
+		local t = TOTAL_T
+		object:set_color(Color(1, 1, 1, 1))
+		while t > 0 do
+			local dt = coroutine.yield()
+			t = t - dt
+			object:set_color(Color(1, 1 - (0.5 * math.sin(t * 360) + 0.5), 1, 1 - (0.5 * math.sin(t * 360) + 0.5)))
+		end
+		object:set_color(Color(1, 1, 1, 1))
+	end
+
+	function HUDObjectives:_animate_update_objective(object)
+		local TOTAL_T = 2
+		local t = TOTAL_T
+		object:set_y(0)
+		while t > 0 do
+			local dt = coroutine.yield()
+			t = t - dt
+			object:set_y(math.round((1 + math.sin((TOTAL_T - t) * 450 * 2)) * (12 * (t / TOTAL_T))))
+		end
+		object:set_y(0)
+	end
+
+	function HUDObjectives:_get_text_width(obj)
+		local _, _, w, _ = obj:text_rect()
+		return w
+	end	
+
+end	
+	
+if RequiredScript == "lib/managers/hud/hudheisttimer" then
+	
+	function HUDHeistTimer:init(hud)
+		self._hud_panel = hud.panel
+		if self._hud_panel:child("heist_timer_panel") then
+			self._hud_panel:remove(self._hud_panel:child("heist_timer_panel"))
+		end
+		
+		self._heist_timer_panel = self._hud_panel:panel({
+			visible = true,
+			name = "heist_timer_panel",
+			h = 40,
+			w = 50,
+			valign = "top",
+			layer = 0
+		})
+		self._timer_text = self._heist_timer_panel:text({
+			name = "timer_text",
+			text = "00:00",
+			font_size = 28,
+			font = tweak_data.hud.medium_font_noshadow,
+			color = Color.white,
+			align = "center",
+			vertical = "center",
+			layer = 1,
+			wrap = false,
+			word_wrap = false
+		})
+		self._last_time = 0
+	end
+	
+end
+
+
+
+--[[
+
+if RequiredScript == "lib/managers/hudmanagerpd2" then
 
 	HUDManager.CUSTOM_TEAMMATE_PANEL = true	--External flag
 	HUDManager._USE_BURST_MODE = HUDManager._USE_BURST_MODE or false	--Updated on burst fire plugin load
@@ -141,6 +523,10 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	end
 
 end
+
+]]
+
+--[[
 
 if RequiredScript == "lib/managers/hud/hudteammate" then
 
@@ -1777,7 +2163,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 end
-	
+
+]]
+
+--[[
+
 if RequiredScript == "lib/managers/hud/hudtemp" then
 
 	HUDTemp._MARGIN = 8
@@ -1911,379 +2301,5 @@ if RequiredScript == "lib/managers/hud/hudtemp" then
 	
 end
 
-if RequiredScript == "lib/managers/hud/hudassaultcorner" then
+]]
 
-	local init_original = HUDAssaultCorner.init
-
-	function HUDAssaultCorner:init(...)
-		init_original(self, ...)
-		
-		local assault_panel = self._hud_panel:child("assault_panel")
-		assault_panel:set_right(self._hud_panel:w() / 2 + 133)
-		local buffs_panel = self._hud_panel:child("buffs_panel")
-		buffs_panel:set_x(assault_panel:left() + self._bg_box:left() - 3 - 200)
-		
-		local point_of_no_return_panel = self._hud_panel:child("point_of_no_return_panel")
-		point_of_no_return_panel:set_right(self._hud_panel:w() / 2 + 133)
-		
-		local casing_panel = self._hud_panel:child("casing_panel")
-		casing_panel:set_right(self._hud_panel:w() / 2 + 133)
-		
-		local hostages_panel = self._hud_panel:child("hostages_panel")
-		hostages_panel:set_alpha(0)
-	end
-
-	--[[
-	function HUDAssaultCorner:init(hud, full_hud)
-		self._hud_panel = hud.panel
-		self._full_hud_panel = full_hud.panel
-		self._casing_color = Color.white
-		if self._hud_panel:child("assault_panel") then
-			self._hud_panel:remove(self._hud_panel:child("assault_panel"))
-		end
-
-		local size = 200
-		local assault_panel = self._hud_panel:panel({
-			visible = false,
-			name = "assault_panel",
-			w = 270,
-			h = 100
-		})
-		assault_panel:set_center(self._hud_panel:center())
-		assault_panel:set_top(0)
-		self._assault_mode = "normal"
-		self._assault_color = Color(1, 1, 1, 0)
-		self._vip_assault_color = Color(1, 1, 0.5019608, 0)
-		self._current_assault_color = self._assault_color
-
-		local icon_assaultbox = assault_panel:bitmap({
-			halign = "right",
-			valign = "top",
-			color = Color.yellow,
-			name = "icon_assaultbox",
-			blend_mode = "add",
-			visible = true,
-			layer = 0,
-			texture = "guis/textures/pd2/hud_icon_assaultbox",
-			w = 24,
-			h = 24
-		})
-		icon_assaultbox:set_right(icon_assaultbox:parent():w())
-		self._bg_box = HUDBGBox_create(assault_panel, {
-			w = 242,
-			h = 38,
-		}, {
-			color = self._assault_color,
-			blend_mode = "add"
-		})
-		self._bg_box:set_right(icon_assaultbox:left() - 3)
-		local yellow_tape = assault_panel:rect({
-			visible = false,
-			name = "yellow_tape",
-			h = tweak_data.hud.location_font_size * 1.5,
-			w = size * 3,
-			color = Color(1, 0.8, 0),
-			layer = 1
-		})
-		yellow_tape:set_center(10, 10)
-		yellow_tape:set_rotation(30)
-		yellow_tape:set_blend_mode("add")
-		assault_panel:panel({
-			name = "text_panel",
-			layer = 1,
-			w = yellow_tape:w()
-		}):set_center(yellow_tape:center())
-		if self._hud_panel:child("point_of_no_return_panel") then
-			self._hud_panel:remove(self._hud_panel:child("point_of_no_return_panel"))
-		end
-
-		--TODO: Fix text alignment
-		local size = 300
-		local point_of_no_return_panel = self._hud_panel:panel({
-			visible = false,
-			name = "point_of_no_return_panel",
-			w = size,
-			h = 40
-		})
-		point_of_no_return_panel:set_center(self._hud_panel:center())
-		point_of_no_return_panel:set_top(0)
-		self._noreturn_color = Color(1, 1, 0, 0)
-		local icon_noreturnbox = point_of_no_return_panel:bitmap({
-			halign = "right",
-			valign = "top",
-			color = self._noreturn_color,
-			name = "icon_noreturnbox",
-			blend_mode = "add",
-			visible = true,
-			layer = 0,
-			texture = "guis/textures/pd2/hud_icon_noreturnbox",
-			w = 24,
-			h = 24
-		})
-		icon_noreturnbox:set_right(icon_noreturnbox:parent():w())
-		self._noreturn_bg_box = HUDBGBox_create(point_of_no_return_panel, {
-			w = 242,
-			h = 38,
-		}, {
-			color = self._noreturn_color,
-			blend_mode = "add"
-		})
-		self._noreturn_bg_box:set_right(icon_noreturnbox:left() - 3)
-		local w = point_of_no_return_panel:w()
-		local size = 200 - tweak_data.hud.location_font_size
-		local point_of_no_return_text = self._noreturn_bg_box:text({
-			name = "point_of_no_return_text",
-			text = "",
-			blend_mode = "add",
-			layer = 1,
-			valign = "center",
-			align = "right",
-			vertical = "center",
-			color = self._noreturn_color,
-			font_size = tweak_data.hud_corner.noreturn_size,
-			font = tweak_data.hud_corner.assault_font
-		})
-		point_of_no_return_text:set_text(utf8.to_upper(managers.localization:text("hud_assault_point_no_return_in", {time = ""})))
-		point_of_no_return_text:set_size(self._noreturn_bg_box:w(), self._noreturn_bg_box:h())
-		local point_of_no_return_timer = self._noreturn_bg_box:text({
-			name = "point_of_no_return_timer",
-			text = "",
-			blend_mode = "add",
-			layer = 1,
-			valign = "center",
-			align = "center",
-			vertical = "center",
-			color = self._noreturn_color,
-			font_size = tweak_data.hud_corner.noreturn_size,
-			font = tweak_data.hud_corner.assault_font
-		})
-		local _, _, w, h = point_of_no_return_timer:text_rect()
-		point_of_no_return_timer:set_size(46, self._noreturn_bg_box:h())
-		point_of_no_return_timer:set_right(point_of_no_return_timer:parent():w())
-		point_of_no_return_text:set_right(math.round(point_of_no_return_timer:left()))
-	end
-
-	function HUDAssaultCorner:sync_start_assault(data)
-		if self._point_of_no_return then
-			return
-		end
-
-		if managers.job:current_difficulty_stars() > 0 then
-			local ids_risk = Idstring("risk")
-			self:_start_assault({
-				"hud_assault_assault",
-				"hud_assault_end_line",
-				ids_risk,
-				"hud_assault_end_line",
-				"hud_assault_assault",
-				"hud_assault_end_line",
-				ids_risk,
-				"hud_assault_end_line"
-			})
-		else
-			self:_start_assault({
-				"hud_assault_assault",
-				"hud_assault_end_line",
-				"hud_assault_assault",
-				"hud_assault_end_line",
-				"hud_assault_assault",
-				"hud_assault_end_line"
-			})
-		end
-	end
-
-	function HUDAssaultCorner:show_point_of_no_return_timer()
-		local delay_time = self._assault and 1.2 or 0
-		self:_end_assault()
-		local point_of_no_return_panel = self._hud_panel:child("point_of_no_return_panel")
-		point_of_no_return_panel:stop()
-		point_of_no_return_panel:animate(callback(self, self, "_animate_show_noreturn"), delay_time)
-		self._point_of_no_return = true
-	end
-
-	function HUDAssaultCorner:hide_point_of_no_return_timer()
-		self._noreturn_bg_box:stop()
-		self._hud_panel:child("point_of_no_return_panel"):set_visible(false)
-		self._point_of_no_return = false
-	end
-
-	function HUDAssaultCorner:set_control_info(...) end
-	function HUDAssaultCorner:show_casing(...) end
-	function HUDAssaultCorner:hide_casing(...) end
-	]]
-end
-	
-if RequiredScript == "lib/managers/hud/hudobjectives" then
-	
-	HUDObjectives._TEXT_MARGIN = 8
-
-	function HUDObjectives:init(hud)
-		if hud.panel:child("objectives_panel") then
-			hud.panel:remove(self._panel:child("objectives_panel"))
-		end
-
-		self._panel = hud.panel:panel({
-			visible = false,
-			name = "objectives_panel",
-			h = 100,
-			w = 500,
-			x = 60,
-			valign = "top"
-		})
-			
-		self._bg_box = HUDBGBox_create(self._panel, {
-			w = 500,
-			h = 38,
-		})
-		
-		self._objective_text = self._bg_box:text({
-			name = "objective_text",
-			visible = false,
-			layer = 2,
-			color = Color.white,
-			text = "",
-			font_size = tweak_data.hud.active_objective_title_font_size,
-			font = tweak_data.hud.medium_font_noshadow,
-			align = "left",
-			vertical = "center",
-			w = self._bg_box:w(),
-			x = HUDObjectives._TEXT_MARGIN
-		})
-		
-		self._amount_text = self._bg_box:text({
-			name = "amount_text",
-			visible = false,
-			layer = 2,
-			color = Color.white,
-			text = "",
-			font_size = tweak_data.hud.active_objective_title_font_size,
-			font = tweak_data.hud.medium_font_noshadow,
-			align = "left",
-			vertical = "center",
-			w = self._bg_box:w(),
-			x = HUDObjectives._TEXT_MARGIN
-		})
-	end
-
-	function HUDObjectives:activate_objective(data)
-		self._active_objective_id = data.id
-		
-		self._panel:set_visible(true)
-		self._objective_text:set_text(utf8.to_upper(data.text))
-		self._objective_text:set_visible(true)
-		self._amount_text:set_visible(false)
-		
-		local width = self:_get_text_width(self._objective_text)
-		
-		if data.amount then
-			self:update_amount_objective(data)
-			self._amount_text:set_left(width + HUDObjectives._TEXT_MARGIN)
-			width = width + self:_get_text_width(self._amount_text)
-		else
-			self._amount_text:set_text("")
-		end
-
-		self._bg_box:set_w(HUDObjectives._TEXT_MARGIN * 2 + width)
-		self._bg_box:stop()
-		--self._amount_text:animate(callback(self, self, "_animate_new_objective"))
-		--self._objective_text:animate(callback(self, self, "_animate_new_objective"))
-		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
-	end
-
-	function HUDObjectives:update_amount_objective(data)
-		if data.id ~= self._active_objective_id then
-			return
-		end
-
-		self._amount_text:set_visible(true)
-		self._amount_text:set_text(": " .. (data.current_amount or 0) .. "/" .. data.amount)
-		self._amount_text:set_x(self:_get_text_width(self._objective_text) + HUDObjectives._TEXT_MARGIN)
-		self._bg_box:set_w(HUDObjectives._TEXT_MARGIN * 2 + self:_get_text_width(self._objective_text) + self:_get_text_width(self._amount_text))
-		self._bg_box:stop()
-		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
-	end
-
-	function HUDObjectives:remind_objective(id)
-		if id ~= self._active_objective_id then
-			return
-		end
-		
-		self._bg_box:stop()
-		self._bg_box:animate(callback(self, self, "_animate_update_objective"))
-	end
-
-	function HUDObjectives:complete_objective(data)
-		if data.id ~= self._active_objective_id then
-			return
-		end
-
-		self._amount_text:set_visible(false)
-		self._objective_text:set_visible(false)
-		self._panel:set_visible(false)
-		self._bg_box:set_w(0)
-	end
-
-	function HUDObjectives:_animate_new_objective(object)
-		local TOTAL_T = 2
-		local t = TOTAL_T
-		object:set_color(Color(1, 1, 1, 1))
-		while t > 0 do
-			local dt = coroutine.yield()
-			t = t - dt
-			object:set_color(Color(1, 1 - (0.5 * math.sin(t * 360) + 0.5), 1, 1 - (0.5 * math.sin(t * 360) + 0.5)))
-		end
-		object:set_color(Color(1, 1, 1, 1))
-	end
-
-	function HUDObjectives:_animate_update_objective(object)
-		local TOTAL_T = 2
-		local t = TOTAL_T
-		object:set_y(0)
-		while t > 0 do
-			local dt = coroutine.yield()
-			t = t - dt
-			object:set_y(math.round((1 + math.sin((TOTAL_T - t) * 450 * 2)) * (12 * (t / TOTAL_T))))
-		end
-		object:set_y(0)
-	end
-
-	function HUDObjectives:_get_text_width(obj)
-		local _, _, w, _ = obj:text_rect()
-		return w
-	end	
-
-end	
-	
-if RequiredScript == "lib/managers/hud/hudheisttimer" then
-	
-	function HUDHeistTimer:init(hud)
-		self._hud_panel = hud.panel
-		if self._hud_panel:child("heist_timer_panel") then
-			self._hud_panel:remove(self._hud_panel:child("heist_timer_panel"))
-		end
-		
-		self._heist_timer_panel = self._hud_panel:panel({
-			visible = true,
-			name = "heist_timer_panel",
-			h = 40,
-			w = 50,
-			valign = "top",
-			layer = 0
-		})
-		self._timer_text = self._heist_timer_panel:text({
-			name = "timer_text",
-			text = "00:00",
-			font_size = 28,
-			font = tweak_data.hud.medium_font_noshadow,
-			color = Color.white,
-			align = "center",
-			vertical = "center",
-			layer = 1,
-			wrap = false,
-			word_wrap = false
-		})
-		self._last_time = 0
-	end
-	
-end
-	
