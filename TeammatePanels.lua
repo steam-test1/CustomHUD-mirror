@@ -104,6 +104,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 
 	HUDTeammateCustom = HUDTeammateCustom or class(PlayerInfoComponent.Base)
 
+	--TODO: Switch to setting hierarchy with overloading for player/team instead of separate table?
 	HUDTeammateCustom.SETTINGS = {
 		--SHOW_DEBUG_BACKGROUND = true,	--Show the extent of each panel as a colored background
 		MAX_WEAPONS = 2,	--Number of carried guns (...just don't...)
@@ -115,6 +116,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			NAME = true,	--Show name
 			RANK = true,	--Show infamy/level
 			CHARACTER = true,	--Show character name
+			--LATENCY = true,	--Show latency (not used by player panel)
 			STATUS = true,	--Show health/armor/condition etc.
 			EQUIPMENT = true,	--Show throwables, cable ties and deployables
 			SPECIAL_EQUIPMENT = true,	--Show special equipment/tools (keycards etc.)
@@ -140,12 +142,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--UNSELECTED_ONLY = true,
 				},
 			},
-			--Shows the interaction activity, time and progress (only used by team mates, included for reference)
-			--HIDE hides the interaction bar, MIN_DURATION sets a minimum duration in seconds required for it to show an activity
-			INTERACTION = {	
-				--HIDE = true,
-				MIN_DURATION = 1,
+			INTERACTION = {	--(Interaction display only used by teammates, included for reference)
+				--HIDE = true,	--Hides the interaction activity/time/progress
+				MIN_DURATION = 1,	--Shows the interaction display only if interaction duration in seconds exceeds this threshold
 			},
+			KILL_COUNTER = {
+				--Requires external plugin to be loaded, else will be disabled no matter what
+				--HIDE = true,	--Hides the kill counter
+				SHOW_BOT_KILLS = true,	--Show the kill counter for criminal bots
+				SHOW_SPECIAL_KILLS = true,	--Separate counter for specials
+			},
+			ACCURACY = true,	--Show accuracy information
 		},
 		
 		TEAMMATE = {
@@ -156,6 +163,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			NAME = true,
 			RANK = true,
 			CHARACTER = true,
+			LATENCY = true,
 			STATUS = true,
 			EQUIPMENT = true,
 			SPECIAL_EQUIPMENT = true,
@@ -177,6 +185,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				--HIDE = true,
 				MIN_DURATION = 1
 			},
+			KILL_COUNTER = {
+				--HIDE = true,
+				SHOW_BOT_KILLS = true,
+				SHOW_SPECIAL_KILLS = true,
+			},
+			--ACCURACY = true,	--Unused by non-players for now
 		},
 	}
 
@@ -186,6 +200,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._settings = HUDTeammateCustom.SETTINGS[is_player and "PLAYER" or "TEAMMATE"]
 		self._id = id
 		self._is_player = is_player
+		self._next_latency_update_t = 0
 		
 		local size = 50 * self._settings.SCALE
 		local name_size = 20 * self._settings.SCALE
@@ -202,6 +217,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._name = PlayerInfoComponent.Name:new(self._panel, self, name_size)
 		self._rank = PlayerInfoComponent.Rank:new(self._panel, self, name_size)
 		self._character = PlayerInfoComponent.Character:new(self._panel, self, name_size)
+		self._latency = PlayerInfoComponent.Latency:new(self._panel, self, name_size)
 		self._callsign = PlayerInfoComponent.Callsign:new(self._panel, self, name_size)
 		self._player_status = PlayerInfoComponent.PlayerStatusRadial:new(self._panel, self, size, is_player)
 		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
@@ -210,16 +226,23 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._carry = PlayerInfoComponent.Carry:new(self._panel, self, is_player and (20 * self._settings.SCALE) or size, is_player)
 		self._interaction = PlayerInfoComponent.Interaction:new(self._panel, self, size, self._settings.INTERACTION and self._settings.INTERACTION.MIN_DURATION or 0)
 		self._interaction:set_layer(10)
+		self._accuracy = PlayerInfoComponent.AccuracyCounter:new(self._panel, self, name_size * 0.8)
+		self._kills = PlayerInfoComponent.KillCounter:new(self._panel, self, name_size * 0.8, self._settings.KILL_COUNTER.SHOW_SPECIAL_KILLS)
 		
 		self._name:set_enabled("setting", self._settings.NAME)
 		self._rank:set_enabled("setting", self._settings.RANK)
 		self._character:set_enabled("setting", self._settings.CHARACTER)
+		self._latency:set_enabled("setting", self._settings.LATENCY)
+		self._latency:set_enabled("player", not self._is_player)
 		self._callsign:set_enabled("setting", self._settings.CALLSIGN)
 		self._player_status:set_enabled("setting", self._settings.STATUS)
 		self._equipment:set_enabled("setting", self._settings.EQUIPMENT)
 		self._special_equipment:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
 		self._carry:set_enabled("setting", self._settings.CARRY)
 		self._interaction:set_enabled("setting", not (self._settings.INTERACTION and self._settings.INTERACTION.HIDE))
+		self._accuracy:set_enabled("setting", HUDManager.ACCURACY_PLUGIN and self._settings.ACCURACY)
+		self._accuracy:set_enabled("player", self._is_player)
+		self._kills:set_enabled("setting", HUDManager.KILL_COUNTER_PLUGIN and not self._settings.KILL_COUNTER.HIDE)
 		
 		local interaction_panel_overlap = { self._weapons, self._equipment, self._special_equipment }
 		if not self._is_player then
@@ -233,7 +256,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 
 	function HUDTeammateCustom:update(t, dt)
-		
+		if not self._is_player and self._peer_id and t > self._next_latency_update_t then
+			local peer = managers.network:session():peer(self._peer_id)
+			local latency = Network:qos(peer:rpc()).ping
+			
+			self:set_latency(latency)
+			self._next_latency_update_t = t + 1
+		end
 	end
 
 	function HUDTeammateCustom:arrange()
@@ -293,7 +322,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._carry:set_center_x(w / 2)
 		end
 		
-		if not (self._name:visible() or self._rank:visible() or self._character:visible()) and self._player_status:visible() then
+		self._latency:set_right(w)
+		
+		if not (self._latency:visible() or self._name:visible() or self._rank:visible() or self._character:visible()) and self._player_status:visible() then
 			self._callsign:set_center(self._player_status:center())
 		end
 		
@@ -315,7 +346,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._special_equipment:set_enabled("ai", self._human_layout)
 			self._carry:set_enabled("ai", self._human_layout)
 			self._character:set_enabled("ai", self._human_layout)
+			self._latency:set_enabled("ai", self._human_layout)
 			self._rank:set_enabled("ai", self._human_layout)
+			self._kills:set_enabled("ai", self._human_layout or self._settings.KILL_COUNTER.SHOW_BOT_KILLS)
+			self._accuracy:set_enabled("ai", self._human_layout)
 			--self._callsign:set_enabled("ai", self._human_layout)
 			self:teammate_progress(false, "", 0, false)
 			
@@ -328,12 +362,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 			
 			local top_components = { }
-			if self._name:visible() or self._rank:visible() or self._character:visible() or not self._player_status:visible() then
+			if self._latency:visible() or self._name:visible() or self._rank:visible() or self._character:visible() or not self._player_status:visible() then
 				table.insert(top_components, self._callsign)
 			end
 			table.insert(top_components, self._name)
 			table.insert(top_components, self._rank)
 			table.insert(top_components, self._character)
+			table.insert(top_components, self._latency)
 			table.insert(self._component_layout, top_components)
 			
 			local center_components = { self._player_status, self._weapons, self._equipment, self._special_equipment }
@@ -341,6 +376,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				table.insert(center_components, self._carry)
 			end
 			table.insert(self._component_layout, center_components)
+			
+			table.insert(self._component_layout, { self._kills, self._accuracy })
 			
 			
 			
@@ -541,6 +578,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:set_name(name)
+		if self._last_name ~= name then	--TODO: Got to be a better place for this...
+			self._last_name = name
+			self:reset_kill_count()
+			self:reset_accuracy()
+		end
 		self:call_listeners("name", name)
 	end
 	
@@ -562,6 +604,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function HUDTeammateCustom:set_character(character)
 		self:call_listeners("character", character)
+	end
+	
+	function HUDTeammateCustom:set_latency(value)
+		self:call_listeners("latency", value)
 	end
 	
 	function HUDTeammateCustom:set_cheater(...)
@@ -607,6 +653,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		--Obsolete, ignore
 	end
 	
+	function HUDTeammateCustom:set_accuracy(value)
+		self:call_listeners("accuracy", value)
+	end
+	
+	function HUDTeammateCustom:reset_accuracy()
+		self:set_accuracy(0)
+	end
+	
+	function HUDTeammateCustom:increment_kill_count(is_special)
+		self:call_listeners("increment_kill_count", is_special)
+	end
+	
+	function HUDTeammateCustom:reset_kill_count()
+		self:call_listeners("reset_kill_count")
+	end
 	
 	function HUDTeammateCustom:set_weapon(index, id, silencer)
 		self:call_listeners("weapon", index, id, silencer)
@@ -623,7 +684,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function HUDTeammateCustom:damage_taken(damage_type, ratio, depleted)
 		self:call_listeners("damage_taken", damage_type, ratio, depleted)
 	end
-
+	
 	--Failsafe for unhandled functions
 	for id, ptr in pairs(HUDTeammate) do
 		if type(ptr) == "function" then
@@ -1090,6 +1151,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._maniac = PlayerInfoComponent.ManiacRadial:new(self._panel, self, owner, size)
 		self._maniac:set_layer(10)
 	end
+	
+	function PlayerInfoComponent.PlayerStatusRadial:destroy()
+		self._health:destroy()
+		self._armor:destroy()
+		self._stamina:destroy()
+		self._damage_indicator:destroy()
+		self._condition:destroy()
+		self._custom_radial:destroy()
+		self._maniac:destroy()
+		
+		PlayerInfoComponent.PlayerStatusRadial.super.destroy(self)
+	end
 
 	
 	PlayerInfoComponent.Callsign = PlayerInfoComponent.Callsign or class(PlayerInfoComponent.Base)
@@ -1288,6 +1361,37 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._text:set_color((tweak_data.chat_colors[id] or Color.white):with_alpha(1))
 	end
 
+	
+	PlayerInfoComponent.Latency = PlayerInfoComponent.Latency or class(PlayerInfoComponent.Base)
+
+	function PlayerInfoComponent.Latency:init(panel, owner, height)
+		PlayerInfoComponent.Latency.super.init(self, panel, owner, "latency", height*2, height)
+		
+		self._text = self._panel:text({
+			name = "latency",
+			text = "n/a",
+			color = Color.white,
+			halign = "grow",
+			align = "center",
+			vertical = "center",
+			h = height,
+			font_size = height * 0.95,
+			font = tweak_data.hud_players.name_font,
+		})
+		
+		self._owner:register_listener("Latency", { "latency" }, callback(self, self, "set_latency"), false)
+	end
+
+	function PlayerInfoComponent.Latency:destroy()
+		self._owner:unregister_listener("Latency", { "latency" })
+		
+		PlayerInfoComponent.Latency.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.Latency:set_latency(value)
+		self._text:set_text(string.format("%.0fms", value))
+	end
+	
 	
 	PlayerInfoComponent.Weapon = PlayerInfoComponent.Weapon or class(PlayerInfoComponent.Base)
 
@@ -1881,7 +1985,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.SpecialEquipment:destroy()
 		self._owner:unregister_listener("SpecialEquipment", { "clear_special_equipment", "special_equipment_amount", "remove_special_equipment", "add_special_equipment" })
 		
-		PlayerInfoComponent.Equipment.super.SpecialEquipment(self)
+		PlayerInfoComponent.Equipment.super.destroy(self)
 	end
 
 	function PlayerInfoComponent.SpecialEquipment:arrange()
@@ -2036,7 +2140,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.Carry:destroy()
 		self._owner:unregister_listener("Carry", { "set_carry", "clear_carry" })
 		
-		PlayerInfoComponent.Carry.super.SpecialEquipment(self)
+		PlayerInfoComponent.Carry.super.destroy(self)
 	end
 	
 	function PlayerInfoComponent.Carry:arrange()
@@ -2176,7 +2280,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.Interaction:destroy()
 		self._owner:unregister_listener("Interaction", { "interaction_start", "interaction_stop" })
 		
-		PlayerInfoComponent.Interaction.super.SpecialEquipment(self)
+		PlayerInfoComponent.Interaction.super.destroy(self)
 	end
 	
 	function PlayerInfoComponent.Interaction:arrange()
@@ -2298,6 +2402,122 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 
+	PlayerInfoComponent.KillCounter = PlayerInfoComponent.KillCounter or class(PlayerInfoComponent.Base)
+	
+	function PlayerInfoComponent.KillCounter:init(panel, owner, height, show_special_kills)
+		PlayerInfoComponent.KillCounter.super.init(self, panel, owner, "kill_counter", 0, height)
+		
+		self._show_special_kills = show_special_kills
+		
+		self._icon = self._panel:bitmap({
+			name = "icon",
+			texture = "guis/textures/pd2/cn_miniskull",
+			color = Color.white,
+			h = height,
+			w = height,
+		})
+		
+		self._text = self._panel:text({
+			name = "text",
+			layer = 1,
+			color = Color.white,
+			vertical = "center",
+			align = "center",
+			h = height,
+			font_size = height * 0.95,
+			font = tweak_data.hud.medium_font_noshadow,
+		})
+		self._text:set_left(self._icon:right() + 1)
+		
+		self:reset()
+		
+		self._owner:register_listener("KillCounter", { "increment_kill_count" }, callback(self, self, "increment"), false)
+		self._owner:register_listener("KillCounter", { "reset_kill_count" }, callback(self, self, "reset"), false)
+	end
+	
+	function PlayerInfoComponent.KillCounter:destroy()
+		self._owner:unregister_listener("KillCounter", { "increment_kill_count", "reset_kill_count" })
+		
+		PlayerInfoComponent.KillCounter.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.KillCounter:increment(is_special)
+		self._kills = self._kills + 1
+		self._special_kills = self._special_kills + (is_special and 1 or 0)
+		self:_update_text()
+	end
+	
+	function PlayerInfoComponent.KillCounter:reset()
+		self._kills = 0
+		self._special_kills = 0
+		self:_update_text()
+	end
+	
+	function PlayerInfoComponent.KillCounter:_update_text()
+		if self._show_special_kills then
+			self._text:set_text(string.format("%d/%d", self._kills, self._special_kills))
+		else
+			self._text:set_text(string.format("%d", self._kills))
+		end
+		
+		local _, _, w, _ = self._text:text_rect()
+		self._text:set_w(w)
+		
+		if self:set_size(self._text:right(), self._panel:h()) then
+			self._owner:arrange()
+		end
+	end
+	
+	
+	PlayerInfoComponent.AccuracyCounter = PlayerInfoComponent.AccuracyCounter or class(PlayerInfoComponent.Base)
+	
+	function PlayerInfoComponent.AccuracyCounter:init(panel, owner, height)
+		PlayerInfoComponent.AccuracyCounter.super.init(self, panel, owner, "accuracy_counter", 0, height)
+	
+		self._icon = self._panel:bitmap({
+			name = "icon",
+			texture = "guis/textures/pd2/pd2_waypoints",
+			texture_rect = { 96, 0, 32, 32 },
+			color = Color.white,
+			h = height,
+			w = height,
+		})
+		
+		self._text = self._panel:text({
+			name = "text",
+			layer = 1,
+			color = Color.white,
+			vertical = "center",
+			align = "center",
+			h = height,
+			font_size = height * 0.95,
+			font = tweak_data.hud.medium_font_noshadow,
+		})
+		self._text:set_left(self._icon:right() + 1)
+	
+		self:set_accuracy(0)
+	
+		self._owner:register_listener("AccuracyCounter", { "accuracy" }, callback(self, self, "set_accuracy"), false)
+	end
+	
+	function PlayerInfoComponent.AccuracyCounter:destroy()
+		self._owner:unregister_listener("AccuracyCounter", { "accuracy" })
+		
+		PlayerInfoComponent.AccuracyCounter.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.AccuracyCounter:set_accuracy(value)
+		self._text:set_text(string.format("%.0f%%", value))
+		
+		local _, _, w, _ = self._text:text_rect()
+		self._text:set_w(w)
+		
+		if self:set_size(self._text:right(), self._panel:h()) then
+			self._owner:arrange()
+		end
+	end
+	
+	
 	--Unused, remember to update arrange handling
 	PlayerInfoComponent.Throwable = PlayerInfoComponent.Throwable or class(PlayerInfoComponent.Base)
 
@@ -2657,6 +2877,26 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		--self:_set_throwable(outfit.grenade)
 		--self:_set_skills(table.map_copy(outfit.skills.skills))
 		--self:_set_specialization(table.map_copy(outfit.skills.specializations))
+	end
+	
+	function HUDManager:set_teammate_accuracy(i, value)
+		self._teammate_panels[i]:set_accuracy(value)
+	end
+	
+	function HUDManager:set_teammate_weapon_accuracy(i, slot, value)
+		--TODO
+	end
+	
+	function HUDManager:increment_teammate_kill_count(i, is_special)
+		self._teammate_panels[i]:increment_kill_count(is_special)
+	end
+	
+	function HUDManager:reset_teammate_kill_count(i)
+		self._teammate_panels[i]:reset_kill_count()
+	end
+	
+	function HUDManager:increment_teammate_kill_count_detailed(i, unit, weapon_type, weapon_slot)
+		--TODO
 	end
 	
 end

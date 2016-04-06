@@ -22,7 +22,7 @@ elseif RequiredScript == "lib/managers/hud/hudteammate" then
 	function HUDTeammate:init(i, ...)
 		init_original(self, i, ...)
 		
-		if i == HUDManager.PLAYER_PANEL and not HUDManager.CUSTOM_TEAMMATE_PANEL then
+		if i == HUDManager.PLAYER_PANEL then
 			self:_create_stamina_circle()
 		end
 	end

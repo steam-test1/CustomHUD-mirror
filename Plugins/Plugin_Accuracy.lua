@@ -18,7 +18,8 @@ if RequiredScript == "lib/managers/statisticsmanager" then
 			weapon_accuracy = math.floor(100 * weapon_data.hits / weapon_data.total)
 		end
 		
-		managers.hud:set_accuracy(HUDManager.PLAYER_PANEL, slot, weapon_accuracy, self:session_hit_accuracy())
+		managers.hud:set_teammate_accuracy(HUDManager.PLAYER_PANEL, self:session_hit_accuracy())
+		managers.hud:set_teammate_weapon_accuracy(HUDManager.PLAYER_PANEL, slot, weapon_accuracy)
 	end
 
 end
@@ -27,12 +28,12 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 
 	HUDManager.ACCURACY_PLUGIN = true
 
-	function HUDManager:set_accuracy(i, slot, weapon_value, total_value)
-		--TODO: Standard panels call
+	HUDManager.set_teammate_accuracy = HUDManager.set_teammate_accuracy or function(self, i, value)
+		self._teammate_panels[i]:set_accuracy(value)
+	end
 	
-		if self._teammate_panels_custom then
-			self._teammate_panels_custom[i]:set_accuracy(slot, weapon_value, total_value)
-		end
+	HUDManager.set_teammate_weapon_accuracy = HUDManager.set_teammate_weapon_accuracy or function(self, i, slot, value)
+		--TODO
 	end
 
 end
