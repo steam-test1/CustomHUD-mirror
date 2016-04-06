@@ -459,6 +459,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("stored_health_max", amount)
 	end
 	
+	function HUDTeammateCustom:set_downs(value)
+		self:call_listeners("set_downs", value)
+	end
+	
+	function HUDTeammateCustom:decrement_downs()
+		self:call_listeners("decrement_downs")
+	end
+	
+	function HUDTeammateCustom:reset_downs()
+		self:call_listeners("reset_downs")
+	end
+	
 	function HUDTeammateCustom:set_armor(data)
 		self:call_listeners("armor", data.current, data.total)
 	end
@@ -698,7 +710,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	PlayerInfoComponent.HealthRadial = PlayerInfoComponent.HealthRadial or class(PlayerInfoComponent.Base)
 
-	function PlayerInfoComponent.HealthRadial:init(panel, owner, teammate_panel, size)
+	function PlayerInfoComponent.HealthRadial:init(panel, owner, teammate_panel, size, is_player)
 		PlayerInfoComponent.HealthRadial.super.init(self, panel, owner, "health", size, size)
 		
 		self._teammate_panel = teammate_panel
@@ -737,7 +749,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		self._downs_counter = self._panel:text({
 			name = "downs",
-			text = "0",
 			color = Color.white,
 			align = "right",
 			vertical = "bottom",
@@ -753,17 +764,19 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		self._stored_health = 0
 		self._stored_health_max = 0
-		self._downs = 0
+		self._max_downs = tweak_data.player.damage.LIVES_INIT + (is_player and managers.player:upgrade_value("player", "additional_lives", 0) or 0)
+		self._downs = self._max_downs
 		
 		self._teammate_panel:register_listener("HealthRadial", { "health" }, callback(self, self, "set_health"), false)
 		self._teammate_panel:register_listener("HealthRadial", { "stored_health" }, callback(self, self, "set_stored_health"), false)
 		self._teammate_panel:register_listener("HealthRadial", { "stored_health_max" }, callback(self, self, "set_stored_health_max"), false)
 		self._teammate_panel:register_listener("HealthRadial", { "set_downs" }, callback(self, self, "set_downs"), false)
-		self._teammate_panel:register_listener("HealthRadial", { "increment_downs" }, callback(self, self, "increment_downs"), false)
+		self._teammate_panel:register_listener("HealthRadial", { "decrement_downs" }, callback(self, self, "decrement_downs"), false)
+		self._teammate_panel:register_listener("HealthRadial", { "reset_downs" }, callback(self, self, "reset_downs"), false)
 	end
 	
 	function PlayerInfoComponent.HealthRadial:destroy()
-		self._teammate_panel:unregister_listener("HealthRadial", { "health", "stored_health", "stored_health_max", "set_downs", "increment_downs" })
+		self._teammate_panel:unregister_listener("HealthRadial", { "health", "stored_health", "stored_health_max", "set_downs", "decrement_downs", "reset_downs" })
 		
 		PlayerInfoComponent.HealthRadial.super.destroy(self)
 	end
@@ -792,13 +805,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.HealthRadial:set_downs(amount)
-		self._downs = amount
-		
-		self._text:set_text(tostring(amount))
+		if self._downs ~= amount then
+			--printf("DEBUG: set_downs: %s %s\n", tostring(self._teammate_panel._id), tostring(amount))
+			self._downs = amount
+			self._downs_counter:set_text(tostring(amount))
+			self._downs_counter:set_visible(self._downs < self._max_downs)
+			self._downs_counter:set_color(self._downs > 1 and Color.white or Color.red)
+		end
 	end
 	
-	function PlayerInfoComponent.HealthRadial:increment_downs()
-		self:set_downs(self._downs + 1)
+	function PlayerInfoComponent.HealthRadial:decrement_downs()
+		self:set_downs(self._downs - 1)
+	end
+	
+	function PlayerInfoComponent.HealthRadial:reset_downs()
+		self:set_downs(self._max_downs)
 	end
 	
 
@@ -1135,7 +1156,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.PlayerStatusRadial:init(panel, owner, size, is_player)
 		PlayerInfoComponent.PlayerStatusRadial.super.init(self, panel, owner, "player_status", size, size)
 		
-		self._health = PlayerInfoComponent.HealthRadial:new(self._panel, self, owner, size)
+		self._health = PlayerInfoComponent.HealthRadial:new(self._panel, self, owner, size, is_player)
 		self._health:set_layer(0)
 		self._armor = PlayerInfoComponent.ArmorRadial:new(self._panel, self, owner, size)
 		self._armor:set_layer(1)
@@ -2692,6 +2713,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	local set_mugshot_voice_original = HUDManager.set_mugshot_voice
 	local set_teammate_carry_info_original = HUDManager.set_teammate_carry_info
 	local remove_teammate_carry_info_original = HUDManager.remove_teammate_carry_info
+	local set_player_health_original = HUDManager.set_player_health
 
 	function HUDManager:_create_teammates_panel(hud, ...)
 		hud = hud or managers.hud:script(PlayerBase.PLAYER_INFO_HUD_PD2)
@@ -2749,6 +2771,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		self:set_teammate_weapon(HUDManager.PLAYER_PANEL, data.inventory_index, wbase.name_id, wbase:got_silencer())
 		
+		--TODO: Fix. Does not recognize locked modes
 		local active_mode = wbase:fire_mode()
 		local fire_modes = {}
 		if wbase:fire_mode() == "single" or (wbase:can_toggle_firemode() and not wbase._locked_fire_mode) then
@@ -2806,6 +2829,11 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		end
 		
 		return set_teammate_carry_info_original(self, i, ...)
+	end
+	
+	function HUDManager:set_player_health(data, ...)
+		self:set_teammate_downs(HUDManager.PLAYER_PANEL, data.revives)
+		return set_player_health_original(self, data, ...)
 	end
 	
 	--NEW FUNCTIONS
@@ -2899,5 +2927,16 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		--TODO
 	end
 	
+	function HUDManager:set_teammate_downs(i, value)
+		self._teammate_panels[i]:set_downs(value or 0)
+	end
+	
+	function HUDManager:decrement_teammate_downs(i)
+		self._teammate_panels[i]:decrement_downs()
+	end
+	
+	function HUDManager:reset_teammate_downs(i)
+		self._teammate_panels[i]:reset_downs()
+	end
+	
 end
-

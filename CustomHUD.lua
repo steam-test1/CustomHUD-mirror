@@ -379,7 +379,7 @@ end
 
 
 
---[[
+if false then
 
 if RequiredScript == "lib/managers/hudmanagerpd2" then
 
@@ -524,9 +524,6 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 
 end
 
-]]
-
---[[
 
 if RequiredScript == "lib/managers/hud/hudteammate" then
 
@@ -2164,9 +2161,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 end
 
-]]
-
---[[
 
 if RequiredScript == "lib/managers/hud/hudtemp" then
 
@@ -2301,5 +2295,5 @@ if RequiredScript == "lib/managers/hud/hudtemp" then
 	
 end
 
-]]
+end
 
