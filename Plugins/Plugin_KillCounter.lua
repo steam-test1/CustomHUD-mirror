@@ -1,7 +1,8 @@
 if RequiredScript == "lib/units/enemies/cop/copdamage" then
 
---This needs fixing for DoT kills as client somehow
+--This needs fixing for DoT kills as client somehow and a lot of testing
 
+local chk_killshot_original = CopDamage.chk_killshot
 
 function CopDamage:chk_killshot(attacker_unit, variant)
 	--printf("chk_killshot: %s\n", tostring(attacker_unit and attacker_unit:slot()))
@@ -53,11 +54,7 @@ function CopDamage:chk_killshot(attacker_unit, variant)
 	
 
 	
-	
-	
-	if attacker_unit and attacker_unit == managers.player:player_unit() then
-		managers.player:on_killshot(self._unit, variant)
-	end
+	return chk_killshot_original(self, attacker_unit, variant)
 end
 
 
