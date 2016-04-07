@@ -1052,9 +1052,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				t = t - dt
 				
 				local r = 1 - t / T
-				local red = 0.2 + 0.6 * math.min(2*r, 1)
-				local green = 0.8 - 0.6 * math.max(2*(r-0.5), 0)
-				timer:set_color(Color(red, green, 0.2))
+				--local red = 0.2 + 0.6 * math.min(2*r, 1)
+				--local green = 0.8 - 0.6 * math.max(2*(r-0.5), 0)
+				--local blue = 0.2
+				local red = 0.0 + 0.6 * math.min(2*r, 1)
+				local green = 0.6 - 0.6 * math.max(2*(r-0.5), 0)
+				local blue = 0.0
+				timer:set_color(Color(red, green, blue))
 				timer:set_text(string.format("%02.0f", t))
 				
 				if t <= LOW then
@@ -1065,6 +1069,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				end
 			end
 		end
+		
+		timer:set_text("0")
 	end
 
 	
@@ -1676,10 +1682,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 		end
 		
-		local changed = self:set_enabled("panel_size", visible)
-		changed = changed or self:set_size(w, h)
+		local changed_enabled = self:set_enabled("panel_size", visible)
+		local changed_size = self:set_size(w, h)
 		
-		return changed
+		return changed_enabled or changed_size
 	end
 
 	function PlayerInfoComponent.Weapon:set_available_fire_modes(modes, reset)
@@ -1744,6 +1750,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 		
 		self._fire_mode_panel:set_visible(self._fire_mode_count > 1)
+		
+		return self:arrange()
 	end
 
 	function PlayerInfoComponent.Weapon:set_ammo_amount(mag_current, mag_max, total_current, total_max)
@@ -1802,7 +1810,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._owner:register_listener("Weapons", { "ammo_amount" }, callback(self, self, "_event_handler"), true)
 		self._owner:register_listener("Weapons", { "weapon" }, callback(self, self, "_event_handler"), true)
 		self._owner:register_listener("Weapons", { "available_fire_modes" }, callback(self, self, "_event_handler"), true)
-		
 	end
 	
 	function PlayerInfoComponent.AllWeapons:destroy()
@@ -1834,17 +1841,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.AllWeapons:_weapon_selected(slot)
-		local need_rearrange = false
-		
 		for i, weapon in ipairs(self._weapons) do
 			weapon:set_selected(i == slot)
-			local weapon_changed = weapon:arrange()
-			need_rearrange = need_rearrange or weapon_changed
+			--weapon:arrange()
 		end
 		
-		if need_rearrange then
-			self:arrange()
-		end
+		self:arrange()
 	end
 	
 	function PlayerInfoComponent.AllWeapons:_event_handler(event, slot, ...)
@@ -2714,7 +2716,6 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	local set_mugshot_voice_original = HUDManager.set_mugshot_voice
 	local set_teammate_carry_info_original = HUDManager.set_teammate_carry_info
 	local remove_teammate_carry_info_original = HUDManager.remove_teammate_carry_info
-	local set_player_health_original = HUDManager.set_player_health
 
 	function HUDManager:_create_teammates_panel(hud, ...)
 		hud = hud or managers.hud:script(PlayerBase.PLAYER_INFO_HUD_PD2)
@@ -2831,12 +2832,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		return set_teammate_carry_info_original(self, i, ...)
 	end
-	
-	function HUDManager:set_player_health(data, ...)
-		self:set_teammate_downs(HUDManager.PLAYER_PANEL, data.revives)
-		return set_player_health_original(self, data, ...)
-	end
-	
+
 	--NEW FUNCTIONS
 	function HUDManager:arrange_teammate_panels()
 		local MARGIN = 5
@@ -2863,6 +2859,11 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 					end
 				end
 			end
+		end
+		
+		if managers.hudlist then
+			local list_panel = managers.hudlist:list("buff_list"):panel()
+			list_panel:set_bottom(hud_panel:h() - self._teammate_panels[HUDManager.PLAYER_PANEL]:h() - 10)
 		end
 	end
 	

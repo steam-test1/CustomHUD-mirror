@@ -121,6 +121,17 @@ end
 	
 end
 
+if RequiredScript == "lib/units/equipment/sentry_gun/sentrygunbase" then
+	
+	local sync_setup_original = SentryGunBase.sync_setup
+	
+	function SentryGunBase:sync_setup(upgrade_lvl, peer_id, ...)
+		sync_setup_original(self, upgrade_lvl, peer_id, ...)
+		self._owner_id = self._owner_id or peer_id
+	end
+	
+end
+
 if RequiredScript == "lib/managers/hudmanagerpd2" then
 
 	HUDManager.KILL_COUNTER_PLUGIN = true
@@ -138,15 +149,4 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		--TODO: Add call for default HUD
 	end
 
-end
-
-if string.lower(RequiredScript) == "lib/units/equipment/sentry_gun/sentrygunbase" then
-	
-	local sync_setup_original = SentryGunBase.sync_setup
-	
-	function SentryGunBase:sync_setup(upgrade_lvl, peer_id, ...)
-		sync_setup_original(self, upgrade_lvl, peer_id, ...)
-		self._owner_id = self._owner_id or peer_id
-	end
-	
 end
