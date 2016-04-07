@@ -594,6 +594,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._last_name = name
 			self:reset_kill_count()
 			self:reset_accuracy()
+			self:reset_downs()
 		end
 		self:call_listeners("name", name)
 	end
@@ -806,7 +807,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.HealthRadial:set_downs(amount)
 		if self._downs ~= amount then
-			--printf("DEBUG: set_downs: %s %s\n", tostring(self._teammate_panel._id), tostring(amount))
+			printf("DEBUG: set_downs: %s %s\n", tostring(self._teammate_panel._id), tostring(amount))
 			self._downs = amount
 			self._downs_counter:set_text(tostring(amount))
 			self._downs_counter:set_visible(self._downs < self._max_downs)
