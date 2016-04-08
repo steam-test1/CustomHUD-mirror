@@ -1,6 +1,4 @@
-printf = printf or function(format, ...)
-	io.write(string.format(format, ...))
-end
+printf = printf or function(...) end
 
 if RequiredScript == "lib/managers/hud/hudteammate" then
 
@@ -1377,7 +1375,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			text = managers.experience:rank_string(infamy) .. "-" .. text
 		end
 	
-		self._text:set_text(text)
+		self._text:set_text("[" .. text .. "]")
 		local _, _, w, _ = self._text:text_rect()
 		
 		if self:set_size(w, self._panel:h()) then
