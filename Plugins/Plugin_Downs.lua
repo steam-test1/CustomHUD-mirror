@@ -13,18 +13,6 @@ if RequiredScript == "lib/units/beings/player/huskplayermovement" then
 	
 		return _start_bleedout_original(self, ...)
 	end
-	
-	--[[
-	--Apparently does not work
-	function HuskPlayerMovement:_start_dead(...)
-		local crim_data = managers.criminals:character_data_by_unit(self._unit)
-		if crim_data and crim_data.panel_id then
-			managers.hud:reset_teammate_downs(crim_data.panel_id)
-		end
-	
-		return _start_dead_original(self, ...)
-	end
-	]]
 
 end
 
@@ -68,7 +56,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		return set_mugshot_custody_original(self, id, ...)
 	end
 	
-	HUDManager.set_teammate_downs = HUDManager.decrement_teammate_downs or function(self, i, value)
+	HUDManager.set_teammate_downs = HUDManager.set_teammate_downs or function(self, i, value)
 		--TODO
 	end
 	

@@ -44,6 +44,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 	end
 
+	function PlayerInfoComponent.Base:enabled()
+		return next(self._disable_reason) == nil
+	end
+	
 	function PlayerInfoComponent.Base:panel() return self._panel end
 	function PlayerInfoComponent.Base:alpha() return self._panel:alpha() end
 	function PlayerInfoComponent.Base:w() return self._panel:w() end
@@ -111,19 +115,24 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			SCALE = 1,			--Scale of all elements of the panel
 			OPACITY = 0.75,	--Transparency/alpha of panel (1 is solid, 0 is invisible)
 			
-			NAME = true,	--Show name
-			RANK = true,	--Show infamy/level
-			CHARACTER = true,	--Show character name
+			--NAME = true,	--Show name
+			--RANK = true,	--Show infamy/level
+			--CHARACTER = true,	--Show character name
 			--LATENCY = true,	--Show latency (not used by player panel)
 			STATUS = true,	--Show health/armor/condition etc.
 			EQUIPMENT = true,	--Show throwables, cable ties and deployables
 			SPECIAL_EQUIPMENT = true,	--Show special equipment/tools (keycards etc.)
 			CALLSIGN = true,	--Show the callsign and voice chat icon
 			CARRY = true,	--Show currently carried bag
+			BUILD = {	--Show perk deck and number of skills acquired in each tree (not used by player)
+				--Pick max one
+				--HIDE = true,	--Don't show build at all
+				DURATION = 30,	--Time in seconds to show the build from when player joins. Information is hidden when duration has expired, or never removed if value is nil/undefined
+			},
 			WEAPON = {
 				--Show/hide various elements of the weapons panels.
 				--HIDE option hides the element. SELECTED_ONLY shows only if the weapon is currently selected, UNSELECTED_ONLY the reverse
-				--Pick *one* setting for each element or results are undefined
+				--Pick max *one* setting for each element or results are undefined
 				ICON = {
 					HIDE = true,
 					--SELECTED_ONLY = true,
@@ -160,13 +169,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			
 			NAME = true,
 			RANK = true,
-			CHARACTER = true,
+			--CHARACTER = true,
 			LATENCY = true,
 			STATUS = true,
 			EQUIPMENT = true,
 			SPECIAL_EQUIPMENT = true,
 			CALLSIGN = true,
 			CARRY = true,
+			BUILD = {
+				--HIDE = true,
+				DURATION = 30,
+			},
 			WEAPON = {
 				ICON = {
 					--HIDE = true,
@@ -191,7 +204,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			--ACCURACY = true,	--Unused by non-players for now
 		},
 	}
-
 	function HUDTeammateCustom:init(id, panel, is_player, alignment)
 		self._left_align = alignment == "left"
 		self._listeners = {}
@@ -217,6 +229,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._character = PlayerInfoComponent.Character:new(self._panel, self, name_size)
 		self._latency = PlayerInfoComponent.Latency:new(self._panel, self, name_size)
 		self._callsign = PlayerInfoComponent.Callsign:new(self._panel, self, name_size)
+		self._build = PlayerInfoComponent.Build:new(self._panel, self, name_size, self._settings.BUILD and self._settings.BUILD.DURATION)	--TODO: setting
 		self._player_status = PlayerInfoComponent.PlayerStatusRadial:new(self._panel, self, size, is_player)
 		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
 		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size * 0.6, size, false)
@@ -233,6 +246,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._latency:set_enabled("setting", self._settings.LATENCY)
 		self._latency:set_enabled("player", not self._is_player)
 		self._callsign:set_enabled("setting", self._settings.CALLSIGN)
+		self._build:set_enabled("setting", not (self._settings.BUILD and self._settings.BUILD.HIDE))
+		self._build:set_enabled("player", not self._is_player)
 		self._player_status:set_enabled("setting", self._settings.STATUS)
 		self._equipment:set_enabled("setting", self._settings.EQUIPMENT)
 		self._special_equipment:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
@@ -346,6 +361,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._character:set_enabled("ai", self._human_layout)
 			self._latency:set_enabled("ai", self._human_layout)
 			self._rank:set_enabled("ai", self._human_layout)
+			self._build:set_enabled("ai", self._human_layout)
 			self._kills:set_enabled("ai", self._human_layout or self._settings.KILL_COUNTER.SHOW_BOT_KILLS)
 			self._accuracy:set_enabled("ai", self._human_layout)
 			--self._callsign:set_enabled("ai", self._human_layout)
@@ -368,6 +384,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			table.insert(top_components, self._character)
 			table.insert(top_components, self._latency)
 			table.insert(self._component_layout, top_components)
+			
+			table.insert(self._component_layout, { self._build })
 			
 			local center_components = { self._player_status, self._weapons, self._equipment, self._special_equipment }
 			if not self._is_player then
@@ -621,6 +639,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("latency", value)
 	end
 	
+	function HUDTeammateCustom:set_specialization(index, level)
+		self:call_listeners("specialization", index, level)
+	end
+	
+	function HUDTeammateCustom:set_skills(data)
+		self:call_listeners("skills", data)
+	end
+	
 	function HUDTeammateCustom:set_cheater(...)
 		
 	end
@@ -751,10 +777,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			color = Color.white,
 			align = "right",
 			vertical = "bottom",
-			h = size * 0.4,
-			w = size * 0.4,
-			font_size = size * 0.4,
-			font = tweak_data.hud_players.name_font,
+			h = size * 0.5,
+			w = size * 0.5,
+			font_size = size * 0.35,
+			font = "fonts/font_small_shadow_mf",
 			layer = self._radial:layer() + 2,
 			visible = HUDManager.DOWNS_COUNTER_PLUGIN or false,
 		})
@@ -1417,6 +1443,106 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.Latency:set_latency(value)
 		self._text:set_text(string.format("%.0fms", value))
 	end
+	
+	
+	PlayerInfoComponent.Build = PlayerInfoComponent.Build or class(PlayerInfoComponent.Base)
+	
+	function PlayerInfoComponent.Build:init(panel, owner, height, duration)
+		PlayerInfoComponent.Build.super.init(self, panel, owner, "build", 0, height)
+		
+		self._duration = duration
+		
+		self._specialization = self._panel:text({
+			name = "specialization",
+			color = Color.white,
+			align = "center",
+			vertical = "center",
+			h = height,
+			font_size = height * 0.95,
+			font = tweak_data.hud_players.name_font,
+		})
+		
+		self._skills = self._panel:text({
+			name = "skills",
+			color = Color.white,
+			align = "center",
+			vertical = "center",
+			h = height,
+			font_size = height * 0.95,
+			font = tweak_data.hud_players.name_font,
+		})
+		
+		self._owner:register_listener("Build", { "specialization" }, callback(self, self, "set_specialization"), false)
+		self._owner:register_listener("Build", { "skills" }, callback(self, self, "set_skills"), false)
+	end
+
+	function PlayerInfoComponent.Build:destroy()
+		self._owner:unregister_listener("Build", { "specialization", "skills" })
+		
+		PlayerInfoComponent.Build.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.Build:arrange()
+		if self._duration then
+			self._panel:stop()
+			self._panel:animate(callback(self, self, "_expire"), self._duration)
+		end
+		
+		local w = self._specialization:w() + self._panel:h() * 0.1
+		self._skills:set_x(w)
+		w = w + self._skills:w()
+		
+		if self:set_size(w, self._panel:h()) then
+			self._owner:arrange()
+		end
+	end
+	
+	function PlayerInfoComponent.Build:set_specialization(index, level)
+		local data = tweak_data.skilltree.specializations[index]
+		local name_id = data and data.name_id
+			
+		if name_id then
+			local text = managers.localization:text(name_id)
+			self._specialization:set_text(string.format("%s: %d", text, level))
+			local _, _, w, _ = self._specialization:text_rect()
+			self._specialization:set_w(w)
+			self:arrange()
+		end
+	end
+	
+	function PlayerInfoComponent.Build:set_skills(data)
+		local trees = { "M", "E", "T", "G", "F" }
+		local text = ""
+		
+		for tree, skills in ipairs(data) do
+			text = string.format("%s%s:%d ", text, trees[tree] or tostring(tree), skills)
+		end
+		
+		self._skills:set_text(text)
+		local _, _, w, _ = self._skills:text_rect()
+		self._skills:set_w(w)
+		self:arrange()
+	end
+	
+	function PlayerInfoComponent.Build:_expire(panel, duration)
+		self:set_enabled("expiration", true)
+		self._panel:set_alpha(1)
+		
+		local t = duration
+		while t > 0 do
+			t = t - coroutine.yield()
+		end
+		
+		t = 3
+		while t > 0 do
+			t = t - coroutine.yield()
+			self._panel:set_alpha(t/3)
+		end
+		
+		self:set_enabled("expiration", false)
+		self._owner:arrange()
+	end
+	
 	
 	
 	PlayerInfoComponent.Weapon = PlayerInfoComponent.Weapon or class(PlayerInfoComponent.Base)
@@ -2736,6 +2862,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		for i = 1, num_panels do
 			local is_player = i == HUDManager.PLAYER_PANEL
+			--TODO: Panels need updateing for right-aligned sorting
 			local align = is_player and "left" or (num_panels > 4) and ((team_panel_i % 2 == 0) and "right" or "left") or "left"
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
@@ -2878,19 +3005,28 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	end
 	
 	function HUDManager:_parse_outfit_string(panel_id, peer_id)
+		local outfit
+		
 		if peer_id == managers.network:session():local_peer():id() then
 			--local outfit = managers.blackmarket:unpack_outfit_from_string(managers.blackmarket:outfit_string())
 			--Weapons handled by HUDManager:add_weapon()
 		else
 			local peer = managers.network:session():peer(peer_id)
-			local outfit = peer and peer:blackmarket_outfit()
+			outfit = peer and peer:blackmarket_outfit()
 			
 			if outfit then
+				--Weapon
 				for selection, data in ipairs({ outfit.secondary, outfit.primary }) do
 					local weapon_id = managers.weapon_factory:get_weapon_id_by_factory_id(data.factory_id)
 					local silencer = managers.weapon_factory:has_perk("silencer", data.factory_id, data.blueprint)
 					self:set_teammate_weapon(panel_id, selection, weapon_id, silencer)
 				end
+				
+				--Perk deck
+				local deck_index, deck_level = unpack(outfit.skills.specializations)
+				local skills = outfit.skills.skills
+				self:set_teammate_specialization(panel_id, tonumber(deck_index), tonumber(deck_level))
+				self:set_teammate_skills(panel_id, skills)
 			end
 		end
 	
@@ -2937,6 +3073,16 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	
 	function HUDManager:reset_teammate_downs(i)
 		self._teammate_panels[i]:reset_downs()
+	end
+	
+	function HUDManager:set_teammate_specialization(i, index, level)
+		if index and level then
+			self._teammate_panels[i]:set_specialization(index, level)
+		end
+	end
+	
+	function HUDManager:set_teammate_skills(i, data)
+		self._teammate_panels[i]:set_skills(data)
 	end
 	
 end
