@@ -7,6 +7,7 @@ TeammatePanels.lua modifies the functionality of the information displayed about
 To use, the script should be post-required/hooked to:
 "lib/managers/hud/hudteammate"
 "lib/managers/hudmanagerpd2"
+"lib/managers/hud/hudtemp"
 
 HUDChat.lua modifies the chat box with some additonal features like scrolling and custom number and size of lines (check the HUDChat.X values in the script). This should be usable both with my scripts as well as a standalone script with other HUDs provided they don't alter the HUDChat code too much. Post-require/hook to:
 "lib/managers/hud/hudchat"
