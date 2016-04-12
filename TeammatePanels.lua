@@ -141,6 +141,23 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._accuracy = PlayerInfoComponent.AccuracyCounter:new(self._panel, self, name_size * 0.8)
 		self._kills = PlayerInfoComponent.KillCounter:new(self._panel, self, name_size * 0.8, self._settings.KILL_COUNTER.SHOW_SPECIAL_KILLS)
 		
+		self._all_components = {
+			self._accuracy,
+			self._build,
+			self._callsign,
+			self._carry,
+			self._character,
+			self._equipment,
+			self._interaction,
+			self._kills,
+			self._latency,
+			self._name,
+			self._player_status,
+			self._rank,
+			self._special_equipment,
+			self._weapons,
+		}
+		
 		self._name:set_enabled("setting", self._settings.NAME)
 		self._rank:set_enabled("setting", self._settings.RANK)
 		self._character:set_enabled("setting", self._settings.CHARACTER)
@@ -182,33 +199,27 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function HUDTeammateCustom:arrange()
 		if not self._component_layout then return end
 	
-		--printf("ARRANGE: %d\n", self._id)
-	
 		local MARGIN = 3
 		local w = 0
 		local h = 0
 		
 		for i, vertical_order in ipairs(self._component_layout) do
-			--printf("\tROW %d\n", i)
-			local start = self._left_align and 1 or #vertical_order
-			local stop = self._left_align and #vertical_order or 1
-			local step = self._left_align and 1 or -1
+			local start = 1
+			local stop = #vertical_order
+			local step = 1
 			
 			local w_row = 0
 			local h_row = 0
 			
 			for j = start, stop, step do
 				local component = vertical_order[j]
-				--printf("\t\t'%s' - ", tostring(component._name))
 				
 				if component:visible() then
-					--printf("S: %.0fw / %.0fh, P: %.0fx / %.0fy ", component:w(), component:h(), component:x(), component:y())
 					component:set_y(h)
 					component:set_x(w_row)
 					w_row = w_row + MARGIN + component:w()
 					h_row = math.max(h_row, component:h())
 				end
-				--printf("\n")
 			end
 			
 			
@@ -241,15 +252,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		if not (self._latency:visible() or self._name:visible() or self._rank:visible() or self._character:visible()) and self._player_status:visible() then
 			self._callsign:set_center(self._player_status:center())
 		end
-		
+				
 		if self._panel:w() ~= w or self._panel:h() ~= h then
 			self._panel:set_size(w, h)
 			managers.hud:arrange_teammate_panels()
 		end
 		
-		--if self:set_size(w, h) then
-		--	managers.hud:arrange_teammate_panels()
-		--end
+		if not self._left_align then
+			for _, component in ipairs(self._all_components) do
+				component:set_right(self._panel:w() - component:left())
+			end
+		end
 	end
 
 	function HUDTeammateCustom:_update_layout(human_layout)
@@ -441,9 +454,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:set_weapon_selected(index, hud_icon)
-		if self._id ~= 4 then
-			--printf("(DEBUG) set_weapon_selected (%d): %s\n", self._id, tostring(index))
-		end
 		self:call_listeners("weapon_selected", index)
 	end
 	
@@ -842,7 +852,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.HealthRadial:set_downs(amount)
 		if self._downs ~= amount then
-			printf("DEBUG: set_downs: %s %s\n", tostring(self._teammate_panel._id), tostring(amount))
 			self._downs = amount
 			self._downs_counter:set_text(tostring(amount))
 			self._downs_counter:set_visible(self._downs < self._max_downs)
@@ -2341,8 +2350,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.Carry:_update_carry(id)
 		if self._current_carry ~= id then
-			--printf("(DEBUG) _update_carry (%s): %s -> %s\n", tostring(self._owner:peer_id()), tostring(self._current_carry), tostring(id))
-			
 			self._current_carry = id
 			
 			if id then
@@ -2884,13 +2891,21 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		for i = 1, num_panels do
 			local is_player = i == HUDManager.PLAYER_PANEL
-			--TODO: Panels need updateing for right-aligned sorting
-			--local align = is_player and "left" or (num_panels > 4) and ((team_panel_i % 2 == 0) and "right" or "left") or "left"
-			local align = "left"
+			local align
+			
+			if is_player then
+				align = "left"	--Player always left-aligned
+			elseif i < 4 then
+				align = "left"	--1-3 is left-aligned
+			elseif i < 8 then
+				align = "right"	--5-7 is right-aligned
+			else
+				align = (i % 2 == 0) and "left" or "right"	--8+ alternates
+			end
+
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
-			self._hud.teammate_panels_data[i] = { 
-				--taken = false and is_player, 
+			self._hud.teammate_panels_data[i] = {
 				taken = is_player, 
 				special_equipments = {},
 			}
