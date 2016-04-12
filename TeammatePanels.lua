@@ -2,109 +2,7 @@ printf = printf or function(...) end
 
 if RequiredScript == "lib/managers/hud/hudteammate" then
 
-	PlayerInfoComponent = PlayerInfoComponent or {}
-
-	PlayerInfoComponent.Base = PlayerInfoComponent.Base or class()
-
-	function PlayerInfoComponent.Base:init(base_panel, owner, name, width, height)
-		self._name = name
-		self._owner_panel = base_panel
-		self._owner = owner
-		self._disable_reason = {}
-		
-		self._panel = self._owner_panel:panel({
-			name = name,
-			h = height or 0,
-			w = width or 0,
-		})
-	end
-	
-	function PlayerInfoComponent.Base:destroy()
-		self._panel:stop()
-		self._owner_panel:remove(self._panel)
-	end
-
-	function PlayerInfoComponent.Base:set_size(w, h)
-		w = w or self._panel:w()
-		h = h or self._panel:h()
-		
-		if self._panel:w() ~= w or self._panel:h() ~= h then
-			self._panel:set_size(w, h)
-			return true
-		end
-	end
-	
-	function PlayerInfoComponent.Base:set_enabled(reason, status)
-		self._disable_reason[reason] = (not status) and true or nil
-		
-		local visible = next(self._disable_reason) == nil
-		if self._panel:visible() ~= visible then
-			self._panel:set_visible(visible)
-			return true
-		end
-	end
-
-	function PlayerInfoComponent.Base:enabled()
-		return next(self._disable_reason) == nil
-	end
-	
-	function PlayerInfoComponent.Base:panel() return self._panel end
-	function PlayerInfoComponent.Base:alpha() return self._panel:alpha() end
-	function PlayerInfoComponent.Base:w() return self._panel:w() end
-	function PlayerInfoComponent.Base:h() return self._panel:h() end
-	function PlayerInfoComponent.Base:x() return self._panel:x() end
-	function PlayerInfoComponent.Base:y() return self._panel:y() end
-	function PlayerInfoComponent.Base:left() return self._panel:left() end
-	function PlayerInfoComponent.Base:right() return self._panel:right() end
-	function PlayerInfoComponent.Base:top() return self._panel:top() end
-	function PlayerInfoComponent.Base:bottom() return self._panel:bottom() end
-	function PlayerInfoComponent.Base:center() return self._panel:center() end
-	function PlayerInfoComponent.Base:center_x() return self._panel:center_x() end
-	function PlayerInfoComponent.Base:center_y() return self._panel:center_y() end
-	function PlayerInfoComponent.Base:visible() return self._panel:visible() end
-	function PlayerInfoComponent.Base:layer() return self._panel:layer() end
-
-	function PlayerInfoComponent.Base:set_alpha(v) self._panel:set_alpha(v) end
-	function PlayerInfoComponent.Base:set_x(v) self._panel:set_x(v) end
-	function PlayerInfoComponent.Base:set_y(v) self._panel:set_y(v) end
-	function PlayerInfoComponent.Base:set_left(v) self._panel:set_left(v) end
-	function PlayerInfoComponent.Base:set_right(v) self._panel:set_right(v) end
-	function PlayerInfoComponent.Base:set_top(v) self._panel:set_top(v) end
-	function PlayerInfoComponent.Base:set_bottom(v) self._panel:set_bottom(v) end
-	function PlayerInfoComponent.Base:set_center(x, y) self._panel:set_center(x, y) end
-	function PlayerInfoComponent.Base:set_center_x(v) self._panel:set_center_x(v) end
-	function PlayerInfoComponent.Base:set_center_y(v) self._panel:set_center_y(v) end
-	function PlayerInfoComponent.Base:set_layer(v) self._panel:set_layer(v) end
-
-	function PlayerInfoComponent.Base.get_item_data(type, id)
-		local tweak_entry = {
-			weapon = tweak_data.weapon,
-			melee = tweak_data.blackmarket.melee_weapons,
-			armor = tweak_data.blackmarket.armors,
-			throwable = tweak_data.blackmarket.projectiles,
-			deployables = tweak_data.blackmarket.deployables,
-		}
-		local texture_path = {
-			weapon = "textures/pd2/blackmarket/icons/weapons/",
-			melee = "textures/pd2/blackmarket/icons/melee_weapons/",
-			armor = "textures/pd2/blackmarket/icons/armors/",
-			throwable = "textures/pd2/blackmarket/icons/grenades/",
-			deployables = "textures/pd2/blackmarket/icons/deployables/",
-		}
-
-		local name_id = tweak_entry[type][id] and tweak_entry[type][id].name_id or tostring(id)
-		local name_text = managers.localization:text(name_id)
-
-		local bundle_folder = tweak_entry[type][id] and tweak_entry[type][id].texture_bundle_folder
-		local guis_catalog = string.format("guis/%s", bundle_folder and string.format("dlcs/%s/", tostring(bundle_folder)) or "")
-		local texture_name = tweak_entry[type][id] and tweak_entry[type][id].texture_name or tostring(id)
-		local texture = string.format("%s%s%s", guis_catalog, texture_path[type], texture_name)
-		
-		return texture, name_text
-	end
-
-
-	HUDTeammateCustom = HUDTeammateCustom or class(PlayerInfoComponent.Base)
+	HUDTeammateCustom = HUDTeammateCustom or class()
 
 	--TODO: Switch to setting hierarchy with overloading for player/team instead of separate table?
 	HUDTeammateCustom.SETTINGS = {
@@ -205,6 +103,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		},
 	}
 	function HUDTeammateCustom:init(id, panel, is_player, alignment)
+		self._panel = panel:panel({
+			name = "teammate_panel_" .. tostring(id),
+		})
+
+		self._debug_bg = self._panel:rect({
+			name = "debug_bg",
+			halign = "grow",
+			valign = "grow",
+			alpha = 0.2,
+			visible = HUDTeammateCustom.SETTINGS.SHOW_DEBUG_BACKGROUND and true or false,
+		})
+		
 		self._left_align = alignment == "left"
 		self._listeners = {}
 		self._settings = HUDTeammateCustom.SETTINGS[is_player and "PLAYER" or "TEAMMATE"]
@@ -214,15 +124,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		local size = 50 * self._settings.SCALE
 		local name_size = 20 * self._settings.SCALE
-		HUDTeammateCustom.super.init(self, panel, nil, "teammate_panel_" .. tostring(id), 0, size)
-		
-		self._debug_bg = self._panel:rect({
-			name = "debug_bg",
-			halign = "grow",
-			valign = "grow",
-			alpha = 0.2,
-			visible = HUDTeammateCustom.SETTINGS.SHOW_DEBUG_BACKGROUND,
-		})
 		
 		self._name = PlayerInfoComponent.Name:new(self._panel, self, name_size)
 		self._rank = PlayerInfoComponent.Rank:new(self._panel, self, name_size)
@@ -263,7 +164,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 		self._interaction:set_overlapping_panels(interaction_panel_overlap)
 		
-		self:set_alpha(self._settings.OPACITY)
+		self._panel:set_alpha(self._settings.OPACITY)
 		self._panel:hide()
 		self:_update_layout(true)
 	end
@@ -341,11 +242,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._callsign:set_center(self._player_status:center())
 		end
 		
-		--printf("\tFINAL SIZE: %.0f %.0f\n", w, h)
-		
-		if self:set_size(w, h) then
+		if self._panel:w() ~= w or self._panel:h() ~= h then
+			self._panel:set_size(w, h)
 			managers.hud:arrange_teammate_panels()
 		end
+		
+		--if self:set_size(w, h) then
+		--	managers.hud:arrange_teammate_panels()
+		--end
 	end
 
 	function HUDTeammateCustom:_update_layout(human_layout)
@@ -435,6 +339,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function HUDTeammateCustom:left_aligned()
 		return self._left_align
+	end
+	
+	function HUDTeammateCustom:panel()
+		return self._panel
 	end
 	
 	function HUDTeammateCustom:register_listener(id, events, clbk, prefix_event)
@@ -648,7 +556,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:set_cheater(...)
-		
+		--TODO?
 	end
 
 	function HUDTeammateCustom:set_peer_id(peer_id)
@@ -732,6 +640,109 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	
+	
+
+	PlayerInfoComponent = PlayerInfoComponent or {}
+
+	PlayerInfoComponent.Base = PlayerInfoComponent.Base or class()
+
+	function PlayerInfoComponent.Base:init(base_panel, owner, name, width, height)
+		self._name = name
+		self._owner_panel = base_panel
+		self._owner = owner
+		self._disable_reason = {}
+		
+		self._panel = self._owner_panel:panel({
+			name = name,
+			h = height or 0,
+			w = width or 0,
+		})
+	end
+	
+	function PlayerInfoComponent.Base:destroy()
+		self._panel:stop()
+		self._owner_panel:remove(self._panel)
+	end
+
+	function PlayerInfoComponent.Base:set_size(w, h)
+		w = w or self._panel:w()
+		h = h or self._panel:h()
+		
+		if self._panel:w() ~= w or self._panel:h() ~= h then
+			self._panel:set_size(w, h)
+			return true
+		end
+	end
+	
+	function PlayerInfoComponent.Base:set_enabled(reason, status)
+		self._disable_reason[reason] = (not status) and true or nil
+		
+		local visible = next(self._disable_reason) == nil
+		if self._panel:visible() ~= visible then
+			self._panel:set_visible(visible)
+			return true
+		end
+	end
+
+	function PlayerInfoComponent.Base:enabled()
+		return next(self._disable_reason) == nil
+	end
+	
+	function PlayerInfoComponent.Base:panel() return self._panel end
+	function PlayerInfoComponent.Base:alpha() return self._panel:alpha() end
+	function PlayerInfoComponent.Base:w() return self._panel:w() end
+	function PlayerInfoComponent.Base:h() return self._panel:h() end
+	function PlayerInfoComponent.Base:x() return self._panel:x() end
+	function PlayerInfoComponent.Base:y() return self._panel:y() end
+	function PlayerInfoComponent.Base:left() return self._panel:left() end
+	function PlayerInfoComponent.Base:right() return self._panel:right() end
+	function PlayerInfoComponent.Base:top() return self._panel:top() end
+	function PlayerInfoComponent.Base:bottom() return self._panel:bottom() end
+	function PlayerInfoComponent.Base:center() return self._panel:center() end
+	function PlayerInfoComponent.Base:center_x() return self._panel:center_x() end
+	function PlayerInfoComponent.Base:center_y() return self._panel:center_y() end
+	function PlayerInfoComponent.Base:visible() return self._panel:visible() end
+	function PlayerInfoComponent.Base:layer() return self._panel:layer() end
+
+	function PlayerInfoComponent.Base:set_alpha(v) self._panel:set_alpha(v) end
+	function PlayerInfoComponent.Base:set_x(v) self._panel:set_x(v) end
+	function PlayerInfoComponent.Base:set_y(v) self._panel:set_y(v) end
+	function PlayerInfoComponent.Base:set_left(v) self._panel:set_left(v) end
+	function PlayerInfoComponent.Base:set_right(v) self._panel:set_right(v) end
+	function PlayerInfoComponent.Base:set_top(v) self._panel:set_top(v) end
+	function PlayerInfoComponent.Base:set_bottom(v) self._panel:set_bottom(v) end
+	function PlayerInfoComponent.Base:set_center(x, y) self._panel:set_center(x, y) end
+	function PlayerInfoComponent.Base:set_center_x(v) self._panel:set_center_x(v) end
+	function PlayerInfoComponent.Base:set_center_y(v) self._panel:set_center_y(v) end
+	function PlayerInfoComponent.Base:set_layer(v) self._panel:set_layer(v) end
+
+	function PlayerInfoComponent.Base.get_item_icon_data(type, id)
+		local tweak_entry = {
+			weapon = tweak_data.weapon,
+			melee = tweak_data.blackmarket.melee_weapons,
+			armor = tweak_data.blackmarket.armors,
+			throwable = tweak_data.blackmarket.projectiles,
+			deployables = tweak_data.blackmarket.deployables,
+		}
+		local texture_path = {
+			weapon = "textures/pd2/blackmarket/icons/weapons/",
+			melee = "textures/pd2/blackmarket/icons/melee_weapons/",
+			armor = "textures/pd2/blackmarket/icons/armors/",
+			throwable = "textures/pd2/blackmarket/icons/grenades/",
+			deployables = "textures/pd2/blackmarket/icons/deployables/",
+		}
+
+		local name_id = tweak_entry[type][id] and tweak_entry[type][id].name_id or tostring(id)
+		local name_text = managers.localization:text(name_id)
+
+		local bundle_folder = tweak_entry[type][id] and tweak_entry[type][id].texture_bundle_folder
+		local guis_catalog = string.format("guis/%s", bundle_folder and string.format("dlcs/%s/", tostring(bundle_folder)) or "")
+		local texture_name = tweak_entry[type][id] and tweak_entry[type][id].texture_name or tostring(id)
+		local texture = string.format("%s%s%s", guis_catalog, texture_path[type], texture_name)
+		
+		return texture, name_text
+	end
+
 	
 	PlayerInfoComponent.HealthRadial = PlayerInfoComponent.HealthRadial or class(PlayerInfoComponent.Base)
 
@@ -1020,7 +1031,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			layer = self._icon:layer() + 1,
 		})
 		
-		self._timer_paused = false
+		self._reviver_count = 0
 		
 		self._teammate_panel:register_listener("ConditionRadial", { "condition" }, callback(self, self, "set_condition"), false)
 		self._teammate_panel:register_listener("ConditionRadial", { "start_condition_timer" }, callback(self, self, "start_timer"), false)
@@ -1048,19 +1059,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.ConditionRadial:start_timer(time)
 		self._timer:stop()
 		
-		self._timer_paused = false
+		self._reviver_count = 0
 		self._timer:set_font_size(self._panel:h() * 0.5)
-		self._timer:set_visible(true)
+		self._timer:show()
 		self._timer:animate(callback(self, self, "_animate_timer"), time)
 	end
 	
 	function PlayerInfoComponent.ConditionRadial:stop_timer()
 		self._timer:stop()
-		self._timer:set_visible(false)
+		
+		self._reviver_count = 0
+		self._timer:hide()
 	end
 
 	function PlayerInfoComponent.ConditionRadial:pause_timer(pause)
-		self._timer_paused = pause
+		self._reviver_count = self._reviver_count + (pause and 1 or -1)
 	end
 
 	function PlayerInfoComponent.ConditionRadial:_animate_timer(timer, initial)
@@ -1072,7 +1085,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		while t >= 0 do
 			local dt = coroutine.yield()
-			if not self._timer_paused then
+			if self._reviver_count <= 0 then
 				t = t - dt
 				
 				local r = 1 - t / T
@@ -1197,9 +1210,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._damage_indicator = PlayerInfoComponent.DamageIndicatorRadial:new(self._panel, self, owner, size)
 		self._damage_indicator:set_layer(2)
 		self._condition = PlayerInfoComponent.ConditionRadial:new(self._panel, self, owner, size)
-		self._condition:set_layer(3)
+		self._condition:set_layer(20)
 		self._custom_radial = PlayerInfoComponent.CustomRadial:new(self._panel, self, owner, size)
-		self._custom_radial:set_layer(3)
+		self._custom_radial:set_layer(20)
 		self._maniac = PlayerInfoComponent.ManiacRadial:new(self._panel, self, owner, size)
 		self._maniac:set_layer(10)
 	end
@@ -1488,7 +1501,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._panel:animate(callback(self, self, "_expire"), self._duration)
 		end
 		
-		local w = self._specialization:w() + self._panel:h() * 0.1
+		local w = self._specialization:w() + self._panel:h() * 0.2
 		self._skills:set_x(w)
 		w = w + self._skills:w()
 		
@@ -1525,7 +1538,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Build:_expire(panel, duration)
-		self:set_enabled("expiration", true)
+		if self:set_enabled("expiration", true) then
+			self._owner:arrange()
+		end
 		self._panel:set_alpha(1)
 		
 		local t = duration
@@ -1539,8 +1554,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._panel:set_alpha(t/3)
 		end
 		
-		self:set_enabled("expiration", false)
-		self._owner:arrange()
+		if self:set_enabled("expiration", false) then
+			self._owner:arrange()
+		end
 	end
 	
 	
@@ -1840,7 +1856,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 
 	function PlayerInfoComponent.Weapon:set_weapon(id, silencer)
-		local bitmap_texture, text = PlayerInfoComponent.Base.get_item_data("weapon", id)
+		local bitmap_texture, text = PlayerInfoComponent.Base.get_item_icon_data("weapon", id)
 		
 		self._icon_panel:child("icon"):set_image(bitmap_texture)
 		self._icon_panel:child("silencer_icon"):set_visible(silencer)
@@ -1873,7 +1889,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 		end
 		
-		self._fire_mode_panel:set_visible(self._fire_mode_count > 1)
+		self._fire_mode_panel:set_visible(not (self._settings.FIRE_MODE and self._settings.FIRE_MODE.HIDE) and self._fire_mode_count > 1)
 		
 		return self:arrange()
 	end
@@ -2807,7 +2823,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 
 	function PlayerInfoComponent.Throwable:set_icon(id)
-		local texture, text = PlayerInfoComponent.Base.get_item_data("throwable", id)
+		local texture, text = PlayerInfoComponent.Base.get_item_icon_data("throwable", id)
 		
 		self._icon_panel:child("icon"):set_image(texture)
 		self._icon_panel:child("label"):set_text(text)
@@ -2851,24 +2867,32 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			hud.panel:remove(hud.panel:child("teammates_panel"))
 		end
 		
+		if hud.panel:child("bag_presenter") then
+			hud.panel:remove(hud.panel:child("bag_presenter"))
+		end
+		
+		self._bag_presenter = BagPresenter:new(hud.panel)
+		
 		local teammates_panel = hud.panel:panel({
 			name = "teammates_panel",
 			w = hud.panel:w(),
 			h = hud.panel:h(),
 		})
 		
-		local num_panels = 4
+		local num_panels = math.max(CriminalsManager.MAX_NR_CRIMINALS, HUDManager.PLAYER_PANEL) --4
 		local team_panel_i = 1
 		
 		for i = 1, num_panels do
 			local is_player = i == HUDManager.PLAYER_PANEL
 			--TODO: Panels need updateing for right-aligned sorting
-			local align = is_player and "left" or (num_panels > 4) and ((team_panel_i % 2 == 0) and "right" or "left") or "left"
+			--local align = is_player and "left" or (num_panels > 4) and ((team_panel_i % 2 == 0) and "right" or "left") or "left"
+			local align = "left"
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
 			self._hud.teammate_panels_data[i] = { 
-				taken = false and is_player, 
-				special_equipments = {}
+				--taken = false and is_player, 
+				taken = is_player, 
+				special_equipments = {},
 			}
 			
 			table.insert(self._teammate_panels, teammate)
@@ -2944,7 +2968,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	
 	function HUDManager:set_teammate_carry_info(i, ...)
 		if i == HUDManager.PLAYER_PANEL then
-			self._teammate_panels[i]:set_carry_info(...)
+			self._bag_presenter:set_carry(...)
 		end
 		
 		return set_teammate_carry_info_original(self, i, ...)
@@ -2952,6 +2976,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	
 	function HUDManager:remove_teammate_carry_info(i, ...)
 		if i == HUDManager.PLAYER_PANEL then
+			self._bag_presenter:clear_carry()
 			self._teammate_panels[i]:remove_carry_info(...)
 		end
 		
@@ -2967,13 +2992,15 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		local left_height_offset = 0
 		local right_height_offset = 0
 		
-		for i, panel in ipairs(self._teammate_panels) do
+		for i, teammate in ipairs(self._teammate_panels) do
+			local panel = teammate:panel()
+			
 			if panel:visible() then
 				if i == HUDManager.PLAYER_PANEL then
 					panel:set_center(hud_panel:w() / 2, 0)
 					panel:set_bottom(hud_panel:h())
 				else
-					if panel:left_aligned() then
+					if teammate:left_aligned() then
 						panel:set_left(0)
 						panel:set_bottom(hud_panel:h() - left_height_offset)
 						left_height_offset = left_height_offset + MARGIN + panel:h()
@@ -2988,8 +3015,16 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		if managers.hudlist then
 			local list_panel = managers.hudlist:list("buff_list"):panel()
-			list_panel:set_bottom(hud_panel:h() - self._teammate_panels[HUDManager.PLAYER_PANEL]:h() - 10)
+			list_panel:set_bottom(hud_panel:h() - self._teammate_panels[HUDManager.PLAYER_PANEL]:panel():h() - 10)
 		end
+	end
+	
+	function HUDManager:teammate_panel(i)
+		return self._teammate_panels[i]
+	end
+	
+	function HUDManager:set_player_carry_info(carry_id, value)
+		self._teammate_panels[HUDManager.PLAYER_PANEL]:set_carry_info(carry_id, value)
 	end
 	
 	function HUDManager:set_teammate_weapon(i, index, id, silencer)
@@ -3083,6 +3118,126 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	
 	function HUDManager:set_teammate_skills(i, data)
 		self._teammate_panels[i]:set_skills(data)
+	end
+	
+	
+	BagPresenter = BagPresenter or class()
+	
+	function BagPresenter:init(parent_panel)
+		self._parent_panel = parent_panel
+		
+		self._panel = parent_panel:panel({
+			name = "bag_presenter",
+			visible = false,
+		})
+		
+		self._bg_box = HUDBGBox_create(self._panel, {
+			name = "bg_box",
+			halign = "grow",
+			valign = "grow",
+		})
+		
+		self._carry_text = self._panel:text({
+			name = "carry_text",
+			align = "center",
+			vertical = "center",
+			valign = "grow",
+			halign = "grow",
+			color = Color.white,
+			font = "fonts/font_medium_mf",
+		})
+		self._carry_text:set_x(0)
+		self._carry_text:set_y(0)
+	end
+	
+	function BagPresenter:clear_carry()
+		self:set_carry()
+	end
+	
+	function BagPresenter:set_carry(carry_id, value)
+		self._carry_id = carry_id
+		self._carry_value = value
+		
+		self._panel:stop()
+		
+		if carry_id then
+			local tweak = tweak_data.carry[self._carry_id]
+			local name_id = tweak and tweak.name_id
+			local carry_text = name_id and managers.localization:text(name_id) or "N/A"
+			self._carry_text:set_font_size(30)
+			self._carry_text:set_text(carry_text)
+			local _, _, w, h = self._carry_text:text_rect()
+			self._panel:animate(callback(self, self, "_animate_present"), w * 1.5, h * 1.5)
+		else
+			managers.hud:set_player_carry_info()
+			self._panel:hide()
+		end
+	end
+	
+	function BagPresenter:_animate_present(panel, panel_w, panel_h)
+		local player_panel = managers.hud:teammate_panel(HUDManager.PLAYER_PANEL)
+		local x1 = self._parent_panel:w() * 0.5
+		local y1 = self._parent_panel:h() * 0.25
+		local x2 = player_panel:panel():center_x()
+		local y2 = player_panel:panel():top()
+		local w1 = panel_w
+		local w2 = panel_w
+		local w3 = w2 * 0.5
+		local h1 = 0
+		local h2 = panel_h
+		local h3 = h2 * 0.5
+		local f1 = self._carry_text:font_size()
+		local f2 = f1 * 0.5
+		local a1 = 1
+		local a2 = 0.5
+		
+		self._panel:set_alpha(a1)
+		self._panel:show()
+		
+		local T = 0.15
+		local t = 0
+		while t < T do
+			local r = t/T
+			self._panel:set_size(math.lerp(w1, w2, t/T), math.lerp(h1, h2, r))
+			self._panel:set_center(x1, y1)
+			t = t + coroutine.yield()
+		end
+		
+		wait(0.1)
+		
+		local i = 8
+		while i > 0 do
+			self._panel:set_visible(not self._panel:visible())
+			i = i - 1
+			wait(0.1)
+		end
+		
+		wait(0.25)
+		
+		T = 0.5
+		t = 0
+		while t < T do
+			local r = t/T
+			self._panel:set_size(math.lerp(w2, w3, r), math.lerp(h2, h3, r))
+			self._carry_text:set_font_size(math.lerp(f1, f2, r))
+			self._panel:set_center(math.lerp(x1, x2, r), math.lerp(y1, y2, r))
+			self._panel:set_alpha(math.lerp(a1, a2, r))
+			t = t + coroutine.yield()
+		end
+		
+		self._panel:hide()
+		managers.hud:set_player_carry_info(self._carry_id, self._carry_value)
+	end
+	
+end
+
+if RequiredScript == "lib/managers/hud/hudtemp" then
+
+	local init_original = HUDTemp.init
+
+	function HUDTemp:init(...)
+		init_original(self, ...)
+		self._temp_panel:set_alpha(0)
 	end
 	
 end
