@@ -40,6 +40,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--HIDE = true,
 					--SELECTED_ONLY = true,
 					--UNSELECTED_ONLY = true,
+					--TOTAL_AMMO_ONLY = true,	--Shows only total ammo for all weapons
 				},
 				FIRE_MODE = {
 					--HIDE = true,
@@ -88,6 +89,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					--HIDE = true,
 					--SELECTED_ONLY = true,
 					--UNSELECTED_ONLY = true,
+					TOTAL_AMMO_ONLY = true,
 				},
 			},
 			INTERACTION = {
@@ -1579,6 +1581,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._settings = settings
 		self._fire_modes = {}
 		self._fire_mode_count = 0
+		self._individual_ammo_enabled = not self._settings.AMMO.TOTAL_AMMO_ONLY
 		
 		self._icon_panel = self._panel:panel({
 			name = "icon_panel",
@@ -1662,6 +1665,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			name = "fire_mode_panel",
 			w = height * 0.25,
 			h = height,
+			visible = false,
 		})
 		
 		local fire_mode_bg = self._fire_mode_panel:rect({
@@ -1876,21 +1880,24 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:set_alpha(status and 1 or 0.5)
 		
 		local items = {
-			ICON = self._icon_panel,
-			AMMO = self._ammo_panel,
-			FIRE_MODE = self._fire_mode_panel,
+			ICON = { item = self._icon_panel, prerequisite = true },
+			AMMO = { item = self._ammo_panel, prerequisite = self._individual_ammo_enabled },
+			FIRE_MODE = { item = self._fire_mode_panel, prerequisite = self._fire_mode_count > 1 },
 		}
 		
 		for component, settings in pairs(self._settings) do
-			local item = items[component]
-			local visible = true
+			local item = items[component].item
+			local prereq = items[component].prerequisite
+			local visible = prereq
 			
-			if settings.HIDE then
-				visible = false
-			elseif settings.SELECTED_ONLY then
-				visible = status
-			elseif settings.UNSELECTED_ONLY then 
-				visible = not status
+			if prereq then
+				if settings.HIDE then
+					visible = false
+				elseif settings.SELECTED_ONLY then
+					visible = status
+				elseif settings.UNSELECTED_ONLY then 
+					visible = not status
+				end
 			end
 			
 			if item:visible() ~= visible then
@@ -1898,31 +1905,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 		end
 		
-		self._fire_mode_panel:set_visible(not (self._settings.FIRE_MODE and self._settings.FIRE_MODE.HIDE) and self._fire_mode_count > 1)
+		--self._fire_mode_panel:set_visible(not (self._settings.FIRE_MODE and self._settings.FIRE_MODE.HIDE) and self._fire_mode_count > 1)
 		
 		return self:arrange()
 	end
 
 	function PlayerInfoComponent.Weapon:set_ammo_amount(mag_current, mag_max, total_current, total_max)
-		local function update_component(component, current, max)
-			local ratio = current / max
-			
-			local green = 0.7 * math.clamp((ratio - 0.25) / 0.25, 0, 1) + 0.3
-			local blue = 0.7 * math.clamp(ratio/0.25, 0, 1) + 0.3
-			local color = Color(1, 1, blue, green)
-			component:set_text(string.format("%03.0f", current))
-			component:set_color(color)
-			
-			local range = current < 10 and 2 or current < 100 and 1 or 0
-			if range > 0 then
-				component:set_range_color(0, range, color:with_alpha(0.5))
-			end
-			
-			return ratio, component
-		end
-
-		update_component(self._ammo_panel:child("mag"), mag_current, mag_max)
-		update_component(self._ammo_panel:child("total"), total_current, total_max)
+		PlayerInfoComponent.AllWeapons._update_ammo_text(self._ammo_panel:child("mag"), mag_current, mag_max)
+		PlayerInfoComponent.AllWeapons._update_ammo_text(self._ammo_panel:child("total"), total_current, total_max)
 	end
 
 
@@ -1930,6 +1920,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.AllWeapons:init(panel, owner, height, weapon_count, settings)
 		PlayerInfoComponent.AllWeapons.super.init(self, panel, owner, "all_weapons", 0, height)
+		
+		self._weapon_count = weapon_count
+		self._settings = settings
 		
 		self._panel:rect({
 			name = "bg",
@@ -1945,9 +1938,33 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			table.insert(self._weapons, weapon)
 		end
 		
+		self._aggregate_ammo_panel = self._panel:panel({
+			name = "aggregate_ammo_panel",
+			h = height,
+			visible = self._settings.AMMO.TOTAL_AMMO_ONLY and true or false,
+		})
+		
+		self._aggregate_ammo = {}
+		for i = 1, weapon_count do
+			self._aggregate_ammo[i] = self._aggregate_ammo_panel:text({
+				name = "aggregate_ammo_" .. tostring(i),
+				text = "000",
+				color = Color.white,
+				halign = "grow",
+				valign = "scale",
+				vertical = "center",
+				align = "right",
+				y = (i-1) * self._aggregate_ammo_panel:h() * (1/weapon_count),
+				h = self._aggregate_ammo_panel:h() * (1/weapon_count),
+				font_size = self._aggregate_ammo_panel:h() * (1/weapon_count) * 0.95,
+				font = tweak_data.hud_players.ammo_font
+			})
+			local _, _, w, _ = self._aggregate_ammo[i]:text_rect()
+			self._aggregate_ammo_panel:set_w(math.max(w, self._aggregate_ammo_panel:w()))
+		end
+		
 		self._event_callbacks = {
 			weapon_fire_mode = "set_fire_mode",
-			ammo_amount = "set_ammo_amount",
 			weapon = "set_weapon",
 			available_fire_modes = "set_available_fire_modes",
 		}
@@ -1956,7 +1973,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		self._owner:register_listener("Weapons", { "weapon_fire_mode" }, callback(self, self, "_event_handler"), true)
 		self._owner:register_listener("Weapons", { "weapon_selected" }, callback(self, self, "_weapon_selected"), false)
-		self._owner:register_listener("Weapons", { "ammo_amount" }, callback(self, self, "_event_handler"), true)
+		self._owner:register_listener("Weapons", { "ammo_amount" }, callback(self, self, "_ammo_amount"), false)
 		self._owner:register_listener("Weapons", { "weapon" }, callback(self, self, "_event_handler"), true)
 		self._owner:register_listener("Weapons", { "available_fire_modes" }, callback(self, self, "_event_handler"), true)
 	end
@@ -1977,10 +1994,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		for i, weapon in ipairs(self._weapons) do
 			if weapon:visible() then
-				--weapon:set_y(0)
 				weapon:set_x(w)
 				w = w + weapon:w()
 			end
+		end
+		
+		if self._aggregate_ammo_panel:visible() then
+			if w > 0 then
+				w = w + h * 0.2	--Margin
+			end
+			self._aggregate_ammo_panel:set_x(w)
+			w = w + self._aggregate_ammo_panel:w()
 		end
 		
 		if self:set_size(w, h) then
@@ -1990,12 +2014,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.AllWeapons:_weapon_selected(slot)
-		for i, weapon in ipairs(self._weapons) do
-			weapon:set_selected(i == slot)
-			--weapon:arrange()
+		for i = 1, self._weapon_count, 1 do
+			local selected = i == slot
+			self._weapons[i]:set_selected(selected)
+			self._aggregate_ammo[i]:set_alpha(selected and 1 or 0.5)
 		end
 		
 		self:arrange()
+	end
+	
+	function PlayerInfoComponent.AllWeapons:_ammo_amount(slot, mag_current, mag_max, total_current, total_max)
+		self._weapons[slot]:set_ammo_amount(mag_current, mag_max, total_current, total_max)
+		PlayerInfoComponent.AllWeapons._update_ammo_text(self._aggregate_ammo[slot], total_current, total_max)
 	end
 	
 	function PlayerInfoComponent.AllWeapons:_event_handler(event, slot, ...)
@@ -2003,6 +2033,23 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local clbk = self._event_callbacks[event]
 		
 		weapon[clbk](weapon, ...)
+	end
+	
+	function PlayerInfoComponent.AllWeapons._update_ammo_text(component, current, max)
+		local ratio = current / max
+		
+		local green = 0.7 * math.clamp((ratio - 0.25) / 0.25, 0, 1) + 0.3
+		local blue = 0.7 * math.clamp(ratio/0.25, 0, 1) + 0.3
+		local color = Color(1, 1, blue, green)
+		component:set_text(string.format("%03.0f", current))
+		component:set_color(color)
+		
+		local range = current < 10 and 2 or current < 100 and 1 or 0
+		if range > 0 then
+			component:set_range_color(0, range, color:with_alpha(0.5))
+		end
+		
+		return ratio, component
 	end
 	
 	
@@ -3213,7 +3260,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		local t = 0
 		while t < T do
 			local r = t/T
-			self._panel:set_size(math.lerp(w1, w2, t/T), math.lerp(h1, h2, r))
+			self._panel:set_size(math.lerp(w1, w2, r), math.lerp(h1, h2, r))
 			self._panel:set_center(x1, y1)
 			t = t + coroutine.yield()
 		end
