@@ -2933,23 +2933,19 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			h = hud.panel:h(),
 		})
 		
+		local j = 1
 		local num_panels = math.max(CriminalsManager.MAX_NR_CRIMINALS, HUDManager.PLAYER_PANEL) --4
-		local team_panel_i = 1
 		
 		for i = 1, num_panels do
 			local is_player = i == HUDManager.PLAYER_PANEL
 			local align
 			
-			if is_player then
-				align = "left"	--Player always left-aligned
-			elseif i < 4 then
-				align = "left"	--1-3 is left-aligned
-			elseif i < 8 then
-				align = "right"	--5-7 is right-aligned
+			if is_player or j <= math.ceil(num_panels / 2) then
+				align = "left"
 			else
-				align = (i % 2 == 0) and "left" or "right"	--8+ alternates
+				align = "right"
 			end
-
+			
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
 			self._hud.teammate_panels_data[i] = {
@@ -2961,10 +2957,8 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			
 			if is_player then
 				teammate:add_panel()
-			end
-			
-			if not is_player then
-				team_panel_i = team_panel_i + 1
+			else
+				j = j + 1
 			end
 		end	
 		
