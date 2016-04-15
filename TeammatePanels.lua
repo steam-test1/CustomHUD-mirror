@@ -2940,7 +2940,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			local is_player = i == HUDManager.PLAYER_PANEL
 			local align
 			
-			if is_player or j <= math.ceil(num_panels / 2) then
+			if j < 4 or is_player or j <= math.ceil(num_panels / 2) then
 				align = "left"
 			else
 				align = "right"
@@ -2949,7 +2949,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
 			self._hud.teammate_panels_data[i] = {
-				taken = is_player, 
+				taken = is_player and (num_panels > HUDManager.PLAYER_PANEL), 
 				special_equipments = {},
 			}
 			
@@ -3038,7 +3038,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		return set_teammate_carry_info_original(self, i, ...)
 	end
-
+	
 	--NEW FUNCTIONS
 	function HUDManager:arrange_teammate_panels()
 		local MARGIN = 5
