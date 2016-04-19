@@ -229,9 +229,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			w = math.max(w, w_row)
 		end
 		
-		if self._interaction:visible() then
-			self._interaction:set_y(self._player_status:y())
+		
+		self._interaction:set_y(self._player_status:y())
 			
+		if self._interaction:visible() then
 			if h < self._player_status:bottom() then
 				h = h + self._interaction:h()
 			end
@@ -1512,9 +1513,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._panel:animate(callback(self, self, "_expire"), self._duration)
 		end
 		
-		local w = self._specialization:w() + self._panel:h() * 0.2
-		self._skills:set_x(w)
-		w = w + self._skills:w()
+		self._skills:set_x(0)
+		local w = self._skills:w() + self._panel:h() * 0.3
+		self._specialization:set_x(w)
+		w = w + self._specialization:w()
 		
 		if self:set_size(w, self._panel:h()) then
 			self._owner:arrange()
@@ -1536,10 +1538,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.Build:set_skills(data)
 		local trees = { "M", "E", "T", "G", "F" }
-		local text = ""
+		local text = "|"
 		
 		for tree, skills in ipairs(data) do
-			text = string.format("%s%s:%d ", text, trees[tree] or tostring(tree), skills)
+			if tonumber(skills) > 0 then
+				text = string.format("%s %s:%02d |", text, trees[tree] or tostring(tree), tonumber(skills))
+			end
 		end
 		
 		self._skills:set_text(text)
@@ -2934,13 +2938,16 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		})
 		
 		local j = 1
-		local num_panels = math.max(CriminalsManager.MAX_NR_CRIMINALS, HUDManager.PLAYER_PANEL) --4
+		HUDManager.PLAYER_PANEL = math.max(CriminalsManager.MAX_NR_CRIMINALS, HUDManager.PLAYER_PANEL)	--TEST
+		local num_panels = HUDManager.PLAYER_PANEL	--TEST
+		--local num_panels = math.max(CriminalsManager.MAX_NR_CRIMINALS, HUDManager.PLAYER_PANEL) --4
 		
 		for i = 1, num_panels do
 			local is_player = i == HUDManager.PLAYER_PANEL
 			local align
 			
-			if j < 4 or is_player or j <= math.ceil(num_panels / 2) then
+			--if j < 4 or is_player or j <= math.ceil(num_panels / 2) then
+			if j <= 7 or is_player then
 				align = "left"
 			else
 				align = "right"
@@ -2949,7 +2956,8 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			local teammate = HUDTeammateCustom:new(i, teammates_panel, is_player, align)
 			
 			self._hud.teammate_panels_data[i] = {
-				taken = is_player and (num_panels > HUDManager.PLAYER_PANEL), 
+				--taken = is_player and (num_panels > HUDManager.PLAYER_PANEL), 
+				taken = false,
 				special_equipments = {},
 			}
 			
@@ -3038,6 +3046,17 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		return set_teammate_carry_info_original(self, i, ...)
 	end
+	
+	--HARD OVERRIDE (4 -> HUDManager.PLAYER_PANEL)
+	function HUDManager:reset_player_hpbar()
+	local crim_entry = managers.criminals:character_static_data_by_name(managers.criminals:local_character_name())
+	if not crim_entry then
+		return
+	end
+	local color_id = managers.network:session():local_peer():id()
+	self:set_teammate_callsign(HUDManager.PLAYER_PANEL, color_id)
+	self:set_teammate_name(HUDManager.PLAYER_PANEL, managers.network:session():local_peer():name())
+end
 	
 	--NEW FUNCTIONS
 	function HUDManager:arrange_teammate_panels()
