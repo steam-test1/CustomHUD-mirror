@@ -1,7 +1,8 @@
 if RequiredScript == "lib/units/enemies/cop/copdamage" then
 
---This needs fixing for DoT kills as client somehow and a lot of testing
+--This needs fixing for DoT kills (then again, so does the games own kill counter) as client somehow and a lot of testing
 
+--[[
 local chk_killshot_original = CopDamage.chk_killshot
 
 function CopDamage:chk_killshot(attacker_unit, variant)
@@ -56,9 +57,7 @@ function CopDamage:chk_killshot(attacker_unit, variant)
 	
 	return chk_killshot_original(self, attacker_unit, variant)
 end
-
-
---[[
+]]
 
 	local _on_damage_received_original = CopDamage._on_damage_received
 
@@ -67,6 +66,45 @@ end
 		local weapon_type
 		local weapon_slot
 		
+		local attacker = alive(data.attacker_unit) and data.attacker_unit
+
+		if attacker then
+			if attacker:in_slot(3) or attacker:in_slot(5) then	
+				--Human team mate
+				killer = attacker
+			elseif attacker:in_slot(2) then
+				--Player
+				killer = attacker
+			elseif attacker:in_slot(16) then
+				--Bot/joker
+				killer = attacker
+			elseif attacker:in_slot(12) then
+				--Enemy
+			elseif attacker:in_slot(25)	then
+				--Turret
+				local owner = attacker:base()._owner_id
+				if owner then 
+					killer =  managers.criminals:character_unit_by_peer_id(owner)
+				end
+			elseif attacker:base().thrower_unit then
+				killer = attacker:base():thrower_unit()
+			end
+			
+			if alive(killer) then
+				local is_special = managers.groupai:state():is_enemy_special(self._unit)
+				
+				if killer:in_slot(2) then
+					managers.hud:increment_teammate_kill_count(HUDManager.PLAYER_PANEL, is_special)
+				else
+					local crim_data = managers.criminals:character_data_by_unit(killer)
+					if crim_data and crim_data.panel_id then
+						managers.hud:increment_teammate_kill_count(crim_data.panel_id, is_special)
+					end
+				end
+			end
+		end
+		
+--[[
 		if alive(data.attacker_unit) then
 			if data.attacker_unit:base().sentry_gun then
 				killer = managers.criminals:character_unit_by_peer_id(data.attacker_unit:base()._owner_id)
@@ -106,6 +144,7 @@ end
 				--io.write("DEBUG: Kill by bot " .. tostring(managers.criminals:character_name_by_unit(killer)) .. ": " .. tostring(weapon_type) .. " (" .. tostring(weapon_slot) .. ")\n")
 			end
 		end
+]]
 	end
 	
 	function CopDamage:_on_damage_received(data, ...)
@@ -117,7 +156,7 @@ end
 	end
 
 	--TODO: Add sync damage checks for non-local bots and players
-]]
+
 	
 end
 
