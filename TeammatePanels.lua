@@ -1937,7 +1937,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		})
 		
 		self._weapons = {}
-		for i = 1, weapon_count, 1 do
+		for i = 1, self._weapon_count, 1 do
 			local weapon = PlayerInfoComponent.Weapon:new(self._panel, self, i, height, settings)
 			table.insert(self._weapons, weapon)
 		end
@@ -1949,7 +1949,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		})
 		
 		self._aggregate_ammo = {}
-		for i = 1, weapon_count do
+		for i = 1, self._weapon_count, 1 do
 			self._aggregate_ammo[i] = self._aggregate_ammo_panel:text({
 				name = "aggregate_ammo_" .. tostring(i),
 				text = "000",
@@ -1958,9 +1958,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				valign = "scale",
 				vertical = "center",
 				align = "right",
-				y = (i-1) * self._aggregate_ammo_panel:h() * (1/weapon_count),
-				h = self._aggregate_ammo_panel:h() * (1/weapon_count),
-				font_size = self._aggregate_ammo_panel:h() * (1/weapon_count) * 0.95,
+				--y = (i-1) * self._aggregate_ammo_panel:h() * (1/self._weapon_count),
+				y = (self._weapon_count - i) * self._aggregate_ammo_panel:h() * (1/self._weapon_count),
+				h = self._aggregate_ammo_panel:h() * (1/self._weapon_count),
+				font_size = self._aggregate_ammo_panel:h() * (1/self._weapon_count) * 0.95,
 				font = tweak_data.hud_players.ammo_font
 			})
 			local _, _, w, _ = self._aggregate_ammo[i]:text_rect()
@@ -1996,7 +1997,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local h = self._panel:h()
 		local w = 0
 		
-		for i, weapon in ipairs(self._weapons) do
+		for i = self._weapon_count, 1, -1 do
+			local weapon = self._weapons[i]
 			if weapon:visible() then
 				weapon:set_x(w)
 				w = w + weapon:w()
