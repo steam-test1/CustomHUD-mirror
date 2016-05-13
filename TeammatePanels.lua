@@ -639,8 +639,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("voice_com", active)
 	end
 
-	function HUDTeammateCustom:damage_taken(damage_type, ratio, depleted)
-		self:call_listeners("damage_taken", damage_type, ratio, depleted)
+	function HUDTeammateCustom:_damage_taken()
+		self:call_listeners("damage_taken")
 	end
 	
 	--Failsafe for unhandled functions
@@ -832,12 +832,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 
 	function PlayerInfoComponent.HealthRadial:set_health(current, total)
 		local ratio = current / total
-		local prev = self._radial:color().red
-		
-		if ratio < prev then
-			self._teammate_panel:damage_taken("health", prev - ratio, ratio <= 0)
-		end
-		
 		self._radial:set_color(Color(ratio, 1, 1))
 		self._stored_radial:set_rotation(-ratio * 360)
 		self:set_stored_health_max(1-ratio)
@@ -899,13 +893,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.ArmorRadial:set_armor(current, total)
-		local ratio = current / total
-		local prev = self._radial:color().red
-		
-		if ratio < prev then
-			self._teammate_panel:damage_taken("armor", prev - ratio, ratio <= 0)
-		end
-		
+		local ratio = current / total		
 		self._radial:set_color(Color(1, ratio, 1, 1))
 	end
 
@@ -988,7 +976,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		PlayerInfoComponent.DamageIndicatorRadial.super.destroy(self)
 	end
 
-	function PlayerInfoComponent.DamageIndicatorRadial:damage_taken(damage_type, amount, depleted)
+	function PlayerInfoComponent.DamageIndicatorRadial:damage_taken()
 		self._indicator:stop()
 		self._indicator:animate(callback(self, self, "_animate_damage_taken"))
 	end
