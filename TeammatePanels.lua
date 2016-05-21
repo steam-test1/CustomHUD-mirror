@@ -1,3 +1,6 @@
+--TODO: Create main panel for weapons + equipment + special equipment and interaction panel to fix the inane overlap special case
+--TODO: Just make a single player status class for all subelements to improve layer handling. Radial design too tighly linked for modularization anyway
+
 printf = printf or function(...) end
 
 if RequiredScript == "lib/managers/hud/hudteammate" then
@@ -132,7 +135,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._character = PlayerInfoComponent.Character:new(self._panel, self, name_size)
 		self._latency = PlayerInfoComponent.Latency:new(self._panel, self, name_size)
 		self._callsign = PlayerInfoComponent.Callsign:new(self._panel, self, name_size)
-		self._build = PlayerInfoComponent.Build:new(self._panel, self, name_size, self._settings.BUILD and self._settings.BUILD.DURATION)	--TODO: setting
+		self._build = PlayerInfoComponent.Build:new(self._panel, self, name_size, self._settings.BUILD and self._settings.BUILD.DURATION)
 		self._player_status = PlayerInfoComponent.PlayerStatusRadial:new(self._panel, self, size, is_player)
 		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
 		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size * 0.6, size, false)
@@ -526,11 +529,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function HUDTeammateCustom:clear_special_equipment(override)
 		self:call_listeners("clear_special_equipment")
-		
-		--TODO: WTF Overkill? This a generic reset function with a fucking awful name?
-		--self:remove_panel()
-		--self:add_panel()
-		
+
 		if not override then
 			self:reset()
 		end
@@ -579,8 +578,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("skills", data)
 	end
 	
-	function HUDTeammateCustom:set_cheater(...)
-		--TODO?
+	function HUDTeammateCustom:set_cheater(state)
+		--Chat announcement and floating cheater label above player is probably enough...
 	end
 
 	function HUDTeammateCustom:set_peer_id(peer_id)
@@ -3020,13 +3019,12 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		
 		self:set_teammate_weapon(HUDManager.PLAYER_PANEL, data.inventory_index, wbase.name_id, wbase:got_silencer())
 		
-		--TODO: Fix. Does not recognize locked modes
 		local active_mode = wbase:fire_mode()
 		local fire_modes = {}
 		if wbase:fire_mode() == "single" or (wbase:can_toggle_firemode() and not wbase._locked_fire_mode) then
 			table.insert(fire_modes, { "single", "S" })
 		end
-		if wbase.can_use_burst_mode and wbase:can_use_burst_mode() then
+		if wbase.can_use_burst_mode and wbase:can_use_burst_mode() and not wbase._locked_fire_mode then
 			active_mode = wbase:in_burst_mode() and "burst" or active_mode
 			table.insert(fire_modes, { "burst", "B" })
 		end
