@@ -498,6 +498,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 	end
 	
+	function HUDTeammateCustom:set_deployable_equipment_from_string(data)
+		self:call_listeners("deployable", data.icon)
+		self:set_deployable_equipment_amount_from_string(1, data)
+	end
+	
+	function HUDTeammateCustom:set_deployable_equipment_amount_from_string(index, data)
+		if data.amount then
+			self:call_listeners("deployable_amount_from_string", data)
+		end
+	end
+	
 	function HUDTeammateCustom:add_special_equipment(data)
 		self:call_listeners("add_special_equipment", data.id, data.icon)
 		self:set_special_equipment_amount(data.id, data.amount)
@@ -2100,29 +2111,46 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._owner:register_listener("Equipment", { "cable_tie_amount" }, callback(self, self, "set_cable_tie_amount"), false)
 		self._owner:register_listener("Equipment", { "deployable" }, callback(self, self, "set_deployable"), false)
 		self._owner:register_listener("Equipment", { "deployable_amount" }, callback(self, self, "set_deployable_amount"), false)
+		self._owner:register_listener("Equipment", { "deployable_amount_from_string" }, callback(self, self, "set_deployable_amount_from_string"), false)
+		
 	end
 	
 	function PlayerInfoComponent.Equipment:destroy()
-		self._owner:unregister_listener("Equipment", { "deployable_amount", "deployable", "cable_tie_amount", "cable_tie", "throwable_amount", "throwable" })
+		self._owner:unregister_listener("Equipment", { "deployable_amount_from_string", "deployable_amount", "deployable", "cable_tie_amount", "cable_tie", "throwable_amount", "throwable" })
 		
 		PlayerInfoComponent.Equipment.super.destroy(self)
 	end
 
 	function PlayerInfoComponent.Equipment:arrange()
+		local MARGIN = 2
 		local i = 0
-		local w = self._horizontal and 0 or self._panel:w()
+		local w = 0--self._horizontal and 0 or self._panel:w()
 		local h = self._horizontal and self._panel:h() or 0
 		
 		for _, name in ipairs(self._equipment_types) do
 			local panel = self._panel:child(name)
+			local element_w = 0
 		
 			if panel:visible() then
 				i = i + 1
-			
+				
+				local icon = panel:child("icon")
+				local amount = panel:child("amount")
+				
+				local _, _, text_w, _ = amount:text_rect()
+				amount:set_w(text_w)
+				amount:set_left(icon:right() + MARGIN)
+				
+				element_w = element_w + icon:w()
+				element_w = element_w + MARGIN
+				element_w = element_w + amount:w() + MARGIN
+				panel:set_w(element_w)
+				
 				if self._horizontal then
 					w = w + panel:w()
 					panel:set_x((i-1) * panel:w())
 				else
+					w = math.max(w, panel:w())
 					h = h + panel:h()
 					panel:set_y((i-1) * panel:h())
 				end
@@ -2179,6 +2207,22 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:arrange()
 	end
 
+	function PlayerInfoComponent.Equipment:set_deployable_amount_from_string(data)
+		local visible = false
+		for _, count in ipairs(data.amount) do
+			if count > 0 then
+				visible = true
+				break
+			end
+		end
+		
+		local panel = self._panel:child("deployables")
+		local text = panel:child("amount")
+		text:set_text(data.amount_str)
+		panel:set_visible(visible)
+		self:arrange()
+	end
+	
 
 	PlayerInfoComponent.SpecialEquipment = PlayerInfoComponent.SpecialEquipment or class(PlayerInfoComponent.Base)
 
