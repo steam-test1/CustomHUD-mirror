@@ -23,6 +23,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			STATUS = true,	--Show health/armor/condition etc.
 			EQUIPMENT = true,	--Show throwables, cable ties and deployables
 			SPECIAL_EQUIPMENT = true,	--Show special equipment/tools (keycards etc.)
+			SPECIAL_EQUIPMENT_ROWS = 3,	--Number of special equipment items in each column
 			CALLSIGN = true,	--Show the callsign and voice chat icon
 			CARRY = true,	--Show currently carried bag
 			BUILD = {	--Show perk deck and number of skills acquired in each tree (not used by player)
@@ -76,6 +77,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			STATUS = true,
 			EQUIPMENT = true,
 			SPECIAL_EQUIPMENT = true,
+			SPECIAL_EQUIPMENT_ROWS = 3,
 			CALLSIGN = true,
 			CARRY = true,
 			BUILD = {
@@ -249,9 +251,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._carry = PlayerInfoComponent.Carry:new(self._panel, self, name_size, size, self._settings)
 		
 		--TODO: Update for new system
-		self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
-		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size * 0.6, size, false)
-		self._special_equipment = PlayerInfoComponent.SpecialEquipment:new(self._panel, self, size)
+		self._weapons = PlayerInfoComponent.Weapons:new(self._panel, self, size, self._settings)
+		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size, self._settings)
+		self._special_equipment = PlayerInfoComponent.SpecialEquipment:new(self._panel, self, size, self._settings)
+		--self._weapons = PlayerInfoComponent.AllWeapons:new(self._panel, self, size, HUDTeammateCustom.SETTINGS.MAX_WEAPONS, self._settings.WEAPON)
+		--self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, size * 0.6, size, false)
+		--self._special_equipment = PlayerInfoComponent.SpecialEquipment:new(self._panel, self, size)
 		self._interaction = PlayerInfoComponent.Interaction:new(self._panel, self, size, self._settings.INTERACTION and self._settings.INTERACTION.MIN_DURATION or 0)
 		self._interaction:set_layer(10)
 		
@@ -266,9 +271,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._carry,
 			
 			self._equipment,
-			self._interaction,
-			self._special_equipment,
 			self._weapons,
+			self._special_equipment,
+			self._interaction,
 		}
 		
 		for i, component in ipairs(self._all_components) do
@@ -277,8 +282,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:update_settings()
 		
 		--TODO: Remove
-		self._equipment:set_enabled("setting", self._settings.EQUIPMENT)
-		self._special_equipment:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
 		self._interaction:set_enabled("setting", not (self._settings.INTERACTION and self._settings.INTERACTION.HIDE))
 	end
 	
@@ -291,9 +294,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 			
 			--TODO: Remove
-			self._weapons:set_enabled("ai", self._human_layout)
-			self._equipment:set_enabled("ai", self._human_layout)
-			self._special_equipment:set_enabled("ai", self._human_layout)
+			self._weapons:set_is_ai(not self._human_layout)
+			self._equipment:set_is_ai(not self._human_layout)
+			self._special_equipment:set_is_ai(not self._human_layout)
+			--self._weapons:set_enabled("ai", self._human_layout)
+			--self._equipment:set_enabled("ai", self._human_layout)
+			--self._special_equipment:set_enabled("ai", self._human_layout)
 			
 			self:_rebuild_layout()
 		end
@@ -303,7 +309,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._component_layout = {}
 		
 		if self._is_player then
-			table.insert(self._component_layout, { self._carry })
+			table.insert(self._component_layout, { self._carry })	--1st row
 		end
 		
 		local top_components = { }
@@ -312,17 +318,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 		table.insert(top_components, self._player_info)
 		table.insert(top_components, self._latency)
-		table.insert(self._component_layout, top_components)
+		table.insert(self._component_layout, top_components)	--2nd row
 		
-		table.insert(self._component_layout, { self._build })
+		table.insert(self._component_layout, { self._build })	--3rd row
 		
 		local center_components = { self._player_status, self._weapons, self._equipment, self._special_equipment }
 		if not self._is_player then
 			table.insert(center_components, self._carry)
 		end
-		table.insert(self._component_layout, center_components)
+		table.insert(self._component_layout, center_components)	--4th row
 		
-		table.insert(self._component_layout, { self._kills, self._accuracy })
+		table.insert(self._component_layout, { self._kills, self._accuracy })	--5th row
 		
 		self:arrange()
 	end
@@ -1788,28 +1794,223 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	
+	PlayerInfoComponent.CenterPanel = PlayerInfoComponent.CenterPanel or class(PlayerInfoComponent.Base)
+	function PlayerInfoComponent.CenterPanel:init(panel, owner, height, settings)
+		PlayerInfoComponent.Weapon.super.init(self, panel, owner, "center_panel", 0, height)
+		
+		self._settings = settings
+		
+		--TODO
+		self._weapons = PlayerInfoComponent.Weapons:new(self._panel, self, height, settings)
+		self._equipment = PlayerInfoComponent.Equipment:new(self._panel, self, height, settings)
+		self._special_equipment = PlayerInfoComponent.SpecialEquipment:new(self._panel, self, height, settings)
+		
+		self._components = {
+			self._weapons,
+			self._equipment,
+			self._special_equipment,
+		}
+	end
+	
+	function PlayerInfoComponent.CenterPanel:destroy()
+		for _, component in pairs(self._components) do
+			component:destroy()
+		end
+		PlayerInfoComponent.CenterPanel.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.CenterPanel:update_settings()
+		for _, component in pairs(self._components) do
+			component:update_settings()
+		end
+	end
+	
+	function PlayerInfoComponent.CenterPanel:set_is_local_player(state)
+		if PlayerInfoComponent.CenterPanel.super.set_is_local_player(self, state) then
+			for _, component in pairs(self._components) do
+				component:set_is_local_player(state)
+			end
+		end
+	end
+	
+	function PlayerInfoComponent.CenterPanel:set_is_ai(state)
+		if PlayerInfoComponent.CenterPanel.super.set_is_ai(self, state) then
+			for _, component in pairs(self._components) do
+				component:set_is_ai(state)
+			end
+		end
+	end
+	
+	function PlayerInfoComponent.CenterPanel:arrange()
+		--TODO
+	end
+	
+	function PlayerInfoComponent.CenterPanel:register_listener(...)
+		self._owner:register_listener(...)
+	end
+	
+	function PlayerInfoComponent.CenterPanel:unregister_listener(...)
+		self._owner:unregister_listener(...)
+	end
 	
 	
+	PlayerInfoComponent.Weapons = PlayerInfoComponent.Weapons or class(PlayerInfoComponent.Base)
+	function PlayerInfoComponent.Weapons:init(panel, owner, height, settings)
+		PlayerInfoComponent.Weapons.super.init(self, panel, owner, "weapons", 0, height)
+		
+		self._weapons = {}
+		self._aggregate_ammo = {}
+		self._settings = settings
+		self._weapon_count = HUDTeammateCustom.SETTINGS.MAX_WEAPONS
+		self._event_callbacks = {
+			weapon_fire_mode = "set_fire_mode",
+			weapon = "set_weapon",
+			available_fire_modes = "set_available_fire_modes",
+		}
+		
+		self._panel:rect({
+			name = "bg",
+			color = Color.black,
+			alpha = 0.25,
+			halign = "grow",
+			valign = "grow",
+		})
+		
+		self._aggregate_ammo_panel = self._panel:panel({
+			name = "aggregate_ammo_panel",
+			h = height,
+		})
+		
+		for i = 1, self._weapon_count, 1 do
+			local weapon = PlayerInfoComponent.Weapon:new(self._panel, self, i, height, self._settings)
+			table.insert(self._weapons, weapon)
+			
+			local text_h = self._aggregate_ammo_panel:h() * (1/self._weapon_count)
+			self._aggregate_ammo[i] = self._aggregate_ammo_panel:text({
+				name = "aggregate_ammo_" .. tostring(i),
+				text = "000",
+				color = Color.white,
+				halign = "grow",
+				valign = "scale",
+				vertical = "center",
+				align = "right",
+				y = text_h * (self._weapon_count - i),
+				h = text_h,
+				font_size = text_h * 0.95,
+				font = tweak_data.hud_players.ammo_font
+			})
+			
+			local _, _, w, _ = self._aggregate_ammo[i]:text_rect()
+			self._aggregate_ammo_panel:set_w(math.max(w, self._aggregate_ammo_panel:w()))
+		end
+		
+		self:_weapon_selected(1)
+		
+		self._owner:register_listener("Weapons", { "weapon_selected" }, callback(self, self, "_weapon_selected"), false)
+		self._owner:register_listener("Weapons", { "ammo_amount" }, callback(self, self, "_ammo_amount"), false)
+		self._owner:register_listener("Weapons", { "weapon_fire_mode" }, callback(self, self, "_weapon_event_handler"), true)
+		self._owner:register_listener("Weapons", { "weapon" }, callback(self, self, "_weapon_event_handler"), true)
+		self._owner:register_listener("Weapons", { "available_fire_modes" }, callback(self, self, "_weapon_event_handler"), true)
+	end
 	
+	function PlayerInfoComponent.Weapons:destroy()
+		for _, weapon in pairs(self._weapons) do
+			weapon:destroy()
+		end
+		
+		self._owner:unregister_listener("Weapons", { "weapon_selected", "ammo_amount", "weapon_fire_mode", "weapon", "available_fire_modes" })
+		
+		PlayerInfoComponent.Weapons.super.destroy(self)
+	end
 	
+	function PlayerInfoComponent.Weapons:update_settings()
+		for _, weapon in pairs(self._weapons) do
+			weapon:update_settings()
+		end
+		
+		self._aggregate_ammo_panel:set_visible(self._settings.WEAPON.AMMO.TOTAL_AMMO_ONLY and true or false)
+		self:arrange()
+	end
 	
+	function PlayerInfoComponent.Weapons:set_is_ai(state)
+		if PlayerInfoComponent.CenterPanel.super.set_is_ai(self, state) and self:set_enabled("ai", not self._is_ai) then
+			self._owner:arrange()
+		end
+	end
 	
+	function PlayerInfoComponent.Weapons:arrange()
+		local h = self._panel:h()
+		local w = 0
+		
+		for i = self._weapon_count, 1, -1 do
+			local weapon = self._weapons[i]
+			if weapon:visible() then
+				weapon:set_x(w)
+				w = w + weapon:w()
+			end
+		end
+		
+		if self._aggregate_ammo_panel:visible() then
+			if w > 0 then
+				w = w + h * 0.2	--Margin
+			end
+			self._aggregate_ammo_panel:set_x(w)
+			w = w + self._aggregate_ammo_panel:w()
+		end
+		
+		if self:set_size(w, h) then
+			self:set_enabled("panel_size", w > 0)
+			self._owner:arrange()
+		end
+	end
 	
-
+	function PlayerInfoComponent.Weapons:_weapon_selected(slot)
+		for i = 1, self._weapon_count, 1 do
+			local selected = i == slot
+			self._aggregate_ammo[i]:set_alpha(selected and 1 or 0.5)
+			self._weapons[i]:set_selected(selected)
+		end
+	end
 	
-
+	function PlayerInfoComponent.Weapons:_ammo_amount(slot, mag_current, mag_max, total_current, total_max)
+		PlayerInfoComponent.Weapons._update_ammo_text(self._aggregate_ammo[slot], total_current, total_max)
+		self._weapons[slot]:set_ammo_amount(mag_current, mag_max, total_current, total_max)
+	end
+	
+	function PlayerInfoComponent.Weapons:_weapon_event_handler(event, slot, ...)
+		local weapon = self._weapons[slot]
+		local clbk = self._event_callbacks[event]
+		
+		weapon[clbk](weapon, ...)
+	end
+	
+	function PlayerInfoComponent.Weapons._update_ammo_text(component, current, max)	--Static
+		local ratio = current / max
+		
+		local green = 0.7 * math.clamp((ratio - 0.25) / 0.25, 0, 1) + 0.3
+		local blue = 0.7 * math.clamp(ratio/0.25, 0, 1) + 0.3
+		local color = Color(1, 1, blue, green)
+		component:set_text(string.format("%03.0f", current))
+		component:set_color(color)
+		
+		local range = current < 10 and 2 or current < 100 and 1 or 0
+		if range > 0 then
+			component:set_range_color(0, range, color:with_alpha(0.5))
+		end
+		
+		return ratio, component
+	end
 	
 	
 	PlayerInfoComponent.Weapon = PlayerInfoComponent.Weapon or class(PlayerInfoComponent.Base)
-	
 	function PlayerInfoComponent.Weapon:init(panel, owner, slot, height, settings)
 		PlayerInfoComponent.Weapon.super.init(self, panel, owner, "weapon_" .. tostring(slot), 0, height)
 		
-		self._slot = slot
 		self._settings = settings
+		self._is_selected = false
+		self._slot = slot
 		self._fire_modes = {}
 		self._fire_mode_count = 0
-		self._individual_ammo_enabled = not self._settings.AMMO.TOTAL_AMMO_ONLY
 		
 		self._icon_panel = self._panel:panel({
 			name = "icon_panel",
@@ -1858,7 +2059,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			name = "ammo_panel",
 			h = height,
 		})
-			
+		
 		local ammo_mag = self._ammo_panel:text({
 			name = "mag",
 			text = "000",
@@ -1916,131 +2117,60 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			rotation = -90,
 		})
 		active_mode:set_center(self._fire_mode_panel:center())
-		
-		self:arrange()
 	end
 	
-	function PlayerInfoComponent.Weapon:add_statistics_panel()
-		self._statistics_panel = self._panel:panel({
-			name = "statistics_panel",
-			h = self._panel:h(),
-			w = 0,
-		})
+	function PlayerInfoComponent.Weapon:update_settings()
+		local data = self._settings.WEAPON
 		
-		--TODO: Check killcount and accuracy plugins, add stuff if so
-	--[[
-			if HUDManager.KILL_COUNT_PLUGIN then
-				local kill_count_panel = parent:panel({
-					name = "kill_count_panel",
-					h = parent:h(),
-				})
-				
-				local div = kill_count_panel:rect({
-					name = "div",
-					color = Color.white,
-					w = 1,
-					x = 1,
-					h = kill_count_panel:h(),
-					alpha = 1,
-				})
-				
-				local header = kill_count_panel:text({
-					name = "header",
-					text = "Kills",
-					color = Color.white,
-					layer = 1,
-					x = 1 + div:x(),
-					h = kill_count_panel:h() * 0.5,
-					vertical = "center",
-					align = "center",
-					font_size = kill_count_panel:h() * 0.5 * 0.75,
-					font = tweak_data.hud_players.ammo_font
-				})
-				
-				local count = kill_count_panel:text({
-					name = "count",
-					text = "1234/1234",
-					color = Color.white,
-					layer = 1,
-					x = 1 + div:x(),
-					y = kill_count_panel:h() * 0.5,
-					h = kill_count_panel:h() * 0.5,
-					vertical = "center",
-					align = "center",
-					font_size = kill_count_panel:h() * 0.5 * 0.75,
-					font = tweak_data.hud_players.ammo_font
-				})
-			
-				local _, _, w, _ = count:text_rect()
-				w = w + div:w() + 2
-				
-				header:set_w(w)
-				count:set_w(w)
-				kill_count_panel:set_w(w)
-				kill_count_panel:set_x(parent:w())
-				parent:set_w(parent:w() + kill_count_panel:w())
+		local selected = {
+			[self._icon_panel] = true,
+			[self._ammo_panel] = not data.AMMO.TOTAL_AMMO_ONLY,
+			[self._fire_mode_panel] = self._fire_mode_count > 1,
+		}
+		local unselected = {
+			[self._icon_panel] = true,
+			[self._ammo_panel] = not data.AMMO.TOTAL_AMMO_ONLY,
+			[self._fire_mode_panel] = self._fire_mode_count > 1,
+		}
+		
+		if data.ICON.HIDE then
+			selected[self._icon_panel] = selected[self._icon_panel] and false
+			unselected[self._icon_panel] = unselected[self._icon_panel] and false
+		elseif data.ICON.SELECTED_ONLY then
+			selected[self._icon_panel] = selected[self._icon_panel] and true
+			unselected[self._icon_panel] = unselected[self._icon_panel] and false
+		elseif data.ICON.UNSELECTED_ONLY then
+			selected[self._icon_panel] = selected[self._icon_panel] and false
+			unselected[self._icon_panel] = unselected[self._icon_panel] and true
+		end
+		
+		if data.FIRE_MODE then
+			if data.FIRE_MODE.HIDE then
+				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and false
+				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and false
+			elseif data.FIRE_MODE.SELECTED_ONLY then
+				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and true
+				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and false
+			elseif data.FIRE_MODE.UNSELECTED_ONLY then
+				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and false
+				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and true
 			end
-	]]
-
-	--[[
-			if HUDManager.ACCURACY_PLUGIN then
-				local accuracy_panel = parent:panel({
-					name = "accuracy_panel",
-					h = parent:h(),
-					w = parent:h() * 0.75,
-				})
-				
-				local div = accuracy_panel:rect({
-					name = "div",
-					color = Color.white,
-					x = 1,
-					w = 1,
-					h = accuracy_panel:h(),
-					alpha = 1,
-				})
-				
-				local header = accuracy_panel:text({
-					name = "header",
-					text = "Acc",
-					color = Color.white,
-					layer = 1,
-					x = 1 + div:x(),
-					h = accuracy_panel:h() * 0.5,
-					w = accuracy_panel:w(),
-					vertical = "center",
-					align = "center",
-					font_size = accuracy_panel:h() * 0.5 * 0.75,
-					font = tweak_data.hud_players.ammo_font
-				})
-				
-				local count = accuracy_panel:text({
-					name = "count",
-					text = "00000%",
-					color = Color.white,
-					layer = 1,
-					x = 1 + div:x(),
-					y = accuracy_panel:h() * 0.5,
-					h = accuracy_panel:h() * 0.5,
-					w = accuracy_panel:w(),
-					vertical = "center",
-					align = "center",
-					font_size = accuracy_panel:h() * 0.5 * 0.75,
-					font = tweak_data.hud_players.ammo_font
-				})
-				
-				local _, _, w, _ = count:text_rect()
-				w = w + div:w() + 2
-				
-				header:set_w(w)
-				count:set_w(w)
-				accuracy_panel:set_w(w)
-				accuracy_panel:set_x(parent:w())
-				parent:set_w(parent:w() + accuracy_panel:w())
-			end
-	]]
-
-	--TODO: Update statisticspanel width
-		self:arrange()
+		end
+		
+		if data.AMMO.HIDE then
+			selected[self._ammo_panel] = selected[self._ammo_panel] and false
+			unselected[self._ammo_panel] = unselected[self._ammo_panel] and false
+		elseif data.AMMO.SELECTED_ONLY then
+			selected[self._ammo_panel] = selected[self._ammo_panel] and true
+			unselected[self._ammo_panel] = unselected[self._ammo_panel] and false
+		elseif data.AMMO.UNSELECTED_ONLY then
+			selected[self._ammo_panel] = selected[self._ammo_panel] and false
+			unselected[self._ammo_panel] = unselected[self._ammo_panel] and true
+		end
+		
+		self._component_visibility = { selected = selected, unselected = unselected }
+		
+		self:set_selected(self._is_selected)
 	end
 	
 	function PlayerInfoComponent.Weapon:arrange()
@@ -2050,13 +2180,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local visible = false
 		
 		local component_order = { self._icon_panel, self._fire_mode_panel, self._ammo_panel }
-		if self._statistics_panel then
-			table.insert(component_order, self._statistics_panel)
-		end
+		--if self._statistics_panel then
+		--	table.insert(component_order, self._statistics_panel)
+		--end
 		
 		for _, component in ipairs(component_order) do
 			if component:visible() then
-				--component:set_y(0)
 				component:set_x(w)
 				w = w + component:w() + MARGIN
 				visible = true
@@ -2066,21 +2195,27 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local changed_enabled = self:set_enabled("panel_size", visible)
 		local changed_size = self:set_size(w, h)
 		
-		return changed_enabled or changed_size
+		if changed_enabled or changed_size then
+			self._owner:arrange()
+		end
 	end
 	
-	function PlayerInfoComponent.Weapon:set_available_fire_modes(modes, reset)
-		if reset then
-			self._fire_mode_count = 0
-			self._fire_modes = {}
+	function PlayerInfoComponent.Weapon:set_selected(state)
+		self._is_selected = state
+		
+		if not self._component_visibility then return end
+		
+		for component, visible in pairs(self._component_visibility[state and "selected" or "unselected"]) do
+			component:set_visible(visible)
 		end
 		
-		for _, mode in ipairs(modes) do
-			local name = mode[1]
-			local text = mode[2]
-			self._fire_modes[name] = text
-			self._fire_mode_count = self._fire_mode_count + 1
-		end
+		self:set_alpha(state and 1 or 0.5)
+		self:arrange()
+	end
+	
+	function PlayerInfoComponent.Weapon:set_ammo_amount(mag_current, mag_max, total_current, total_max)
+		PlayerInfoComponent.Weapons._update_ammo_text(self._ammo_panel:child("mag"), mag_current, mag_max)
+		PlayerInfoComponent.Weapons._update_ammo_text(self._ammo_panel:child("total"), total_current, total_max)
 	end
 	
 	function PlayerInfoComponent.Weapon:set_fire_mode(active_mode)
@@ -2104,191 +2239,28 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._icon_panel:child("label"):set_text(text)
 	end
 	
-	function PlayerInfoComponent.Weapon:set_selected(status)
-		self:set_alpha(status and 1 or 0.5)
-		
-		local items = {
-			ICON = { item = self._icon_panel, prerequisite = true },
-			AMMO = { item = self._ammo_panel, prerequisite = self._individual_ammo_enabled },
-			FIRE_MODE = { item = self._fire_mode_panel, prerequisite = self._fire_mode_count > 1 },
-		}
-		
-		for component, settings in pairs(self._settings) do
-			local item = items[component].item
-			local prereq = items[component].prerequisite
-			local visible = prereq
-			
-			if prereq then
-				if settings.HIDE then
-					visible = false
-				elseif settings.SELECTED_ONLY then
-					visible = status
-				elseif settings.UNSELECTED_ONLY then 
-					visible = not status
-				end
-			end
-			
-			if item:visible() ~= visible then
-				item:set_visible(visible)
-			end
+	function PlayerInfoComponent.Weapon:set_available_fire_modes(modes, reset)
+		if reset then
+			self._fire_mode_count = 0
+			self._fire_modes = {}
 		end
 		
-		--self._fire_mode_panel:set_visible(not (self._settings.FIRE_MODE and self._settings.FIRE_MODE.HIDE) and self._fire_mode_count > 1)
-		
-		return self:arrange()
-	end
-	
-	function PlayerInfoComponent.Weapon:set_ammo_amount(mag_current, mag_max, total_current, total_max)
-		PlayerInfoComponent.AllWeapons._update_ammo_text(self._ammo_panel:child("mag"), mag_current, mag_max)
-		PlayerInfoComponent.AllWeapons._update_ammo_text(self._ammo_panel:child("total"), total_current, total_max)
-	end
-	
-	
-	PlayerInfoComponent.AllWeapons = PlayerInfoComponent.AllWeapons or class(PlayerInfoComponent.Base)
-	
-	function PlayerInfoComponent.AllWeapons:init(panel, owner, height, weapon_count, settings)
-		PlayerInfoComponent.AllWeapons.super.init(self, panel, owner, "all_weapons", 0, height)
-		
-		self._weapon_count = weapon_count
-		self._settings = settings
-		
-		self._panel:rect({
-			name = "bg",
-			color = Color.black,
-			alpha = 0.25,
-			halign = "grow",
-			valign = "grow",
-		})
-		
-		self._weapons = {}
-		for i = 1, self._weapon_count, 1 do
-			local weapon = PlayerInfoComponent.Weapon:new(self._panel, self, i, height, settings)
-			table.insert(self._weapons, weapon)
+		for _, mode in ipairs(modes) do
+			local name = mode[1]
+			local text = mode[2]
+			self._fire_modes[name] = text
+			self._fire_mode_count = self._fire_mode_count + 1
 		end
 		
-		self._aggregate_ammo_panel = self._panel:panel({
-			name = "aggregate_ammo_panel",
-			h = height,
-			visible = self._settings.AMMO.TOTAL_AMMO_ONLY and true or false,
-		})
-		
-		self._aggregate_ammo = {}
-		for i = 1, self._weapon_count, 1 do
-			self._aggregate_ammo[i] = self._aggregate_ammo_panel:text({
-				name = "aggregate_ammo_" .. tostring(i),
-				text = "000",
-				color = Color.white,
-				halign = "grow",
-				valign = "scale",
-				vertical = "center",
-				align = "right",
-				--y = (i-1) * self._aggregate_ammo_panel:h() * (1/self._weapon_count),
-				y = (self._weapon_count - i) * self._aggregate_ammo_panel:h() * (1/self._weapon_count),
-				h = self._aggregate_ammo_panel:h() * (1/self._weapon_count),
-				font_size = self._aggregate_ammo_panel:h() * (1/self._weapon_count) * 0.95,
-				font = tweak_data.hud_players.ammo_font
-			})
-			local _, _, w, _ = self._aggregate_ammo[i]:text_rect()
-			self._aggregate_ammo_panel:set_w(math.max(w, self._aggregate_ammo_panel:w()))
-		end
-		
-		self._event_callbacks = {
-			weapon_fire_mode = "set_fire_mode",
-			weapon = "set_weapon",
-			available_fire_modes = "set_available_fire_modes",
-		}
-		
-		self:arrange()
-		
-		self._owner:register_listener("Weapons", { "weapon_fire_mode" }, callback(self, self, "_event_handler"), true)
-		self._owner:register_listener("Weapons", { "weapon_selected" }, callback(self, self, "_weapon_selected"), false)
-		self._owner:register_listener("Weapons", { "ammo_amount" }, callback(self, self, "_ammo_amount"), false)
-		self._owner:register_listener("Weapons", { "weapon" }, callback(self, self, "_event_handler"), true)
-		self._owner:register_listener("Weapons", { "available_fire_modes" }, callback(self, self, "_event_handler"), true)
-	end
-	
-	function PlayerInfoComponent.AllWeapons:destroy()
-		self._owner:unregister_listener("Weapons", { "weapon_fire_mode", "weapon_selected", "ammo_amount", "weapon", "available_fire_modes" })
-		
-		for i, weapon in ipairs(self._weapons) do
-			weapon:destroy()
-		end
-		
-		PlayerInfoComponent.AllWeapons.super.destroy(self)
-	end
-	
-	function PlayerInfoComponent.AllWeapons:arrange()
-		local h = self._panel:h()
-		local w = 0
-		
-		for i = self._weapon_count, 1, -1 do
-			local weapon = self._weapons[i]
-			if weapon:visible() then
-				weapon:set_x(w)
-				w = w + weapon:w()
-			end
-		end
-		
-		if self._aggregate_ammo_panel:visible() then
-			if w > 0 then
-				w = w + h * 0.2	--Margin
-			end
-			self._aggregate_ammo_panel:set_x(w)
-			w = w + self._aggregate_ammo_panel:w()
-		end
-		
-		if self:set_size(w, h) then
-			self:set_enabled("panel_size", w > 0)
-			self._owner:arrange()
-		end
-	end
-	
-	function PlayerInfoComponent.AllWeapons:_weapon_selected(slot)
-		for i = 1, self._weapon_count, 1 do
-			local selected = i == slot
-			self._weapons[i]:set_selected(selected)
-			self._aggregate_ammo[i]:set_alpha(selected and 1 or 0.5)
-		end
-		
-		self:arrange()
-	end
-	
-	function PlayerInfoComponent.AllWeapons:_ammo_amount(slot, mag_current, mag_max, total_current, total_max)
-		self._weapons[slot]:set_ammo_amount(mag_current, mag_max, total_current, total_max)
-		PlayerInfoComponent.AllWeapons._update_ammo_text(self._aggregate_ammo[slot], total_current, total_max)
-	end
-	
-	function PlayerInfoComponent.AllWeapons:_event_handler(event, slot, ...)
-		local weapon = self._weapons[slot]
-		local clbk = self._event_callbacks[event]
-		
-		weapon[clbk](weapon, ...)
-	end
-	
-	function PlayerInfoComponent.AllWeapons._update_ammo_text(component, current, max)
-		local ratio = current / max
-		
-		local green = 0.7 * math.clamp((ratio - 0.25) / 0.25, 0, 1) + 0.3
-		local blue = 0.7 * math.clamp(ratio/0.25, 0, 1) + 0.3
-		local color = Color(1, 1, blue, green)
-		component:set_text(string.format("%03.0f", current))
-		component:set_color(color)
-		
-		local range = current < 10 and 2 or current < 100 and 1 or 0
-		if range > 0 then
-			component:set_range_color(0, range, color:with_alpha(0.5))
-		end
-		
-		return ratio, component
+		self:update_settings()
 	end
 	
 	
 	PlayerInfoComponent.Equipment = PlayerInfoComponent.Equipment or class(PlayerInfoComponent.Base)
-	
-	function PlayerInfoComponent.Equipment:init(panel, owner, width, height, horizontal)
-		PlayerInfoComponent.Equipment.super.init(self, panel, owner, "equipment", width, height)
+	function PlayerInfoComponent.Equipment:init(panel, owner, height, settings)
+		PlayerInfoComponent.Equipment.super.init(self, panel, owner, "equipment", 0, height)
 		
-		self._horizontal = horizontal
+		self._settings = settings
 		self._equipment_types = { "deployables", "cable_ties", "throwables" }
 		
 		local bg = self._panel:rect({
@@ -2300,11 +2272,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			layer = -1,
 		})
 		
+		local size = height / #self._equipment_types
+		
 		for i, name in ipairs(self._equipment_types) do
 			local panel = self._panel:panel({
 				name = name,
-				w = width / (self._horizontal and #self._equipment_types or 1),
-				h = height / (self._horizontal and 1 or #self._equipment_types),
+				h = size,
 				visible = false,
 			})
 			
@@ -2323,7 +2296,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 				color = Color.white,
 				align = "right",
 				vertical = "center",
-				w = panel:w(),
 				h = panel:h()
 			})
 		end
@@ -2337,55 +2309,63 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._owner:register_listener("Equipment", { "deployable" }, callback(self, self, "set_deployable"), false)
 		self._owner:register_listener("Equipment", { "deployable_amount" }, callback(self, self, "set_deployable_amount"), false)
 		self._owner:register_listener("Equipment", { "deployable_amount_from_string" }, callback(self, self, "set_deployable_amount_from_string"), false)
-		
 	end
 	
 	function PlayerInfoComponent.Equipment:destroy()
 		self._owner:unregister_listener("Equipment", { "deployable_amount_from_string", "deployable_amount", "deployable", "cable_tie_amount", "cable_tie", "throwable_amount", "throwable" })
-		
 		PlayerInfoComponent.Equipment.super.destroy(self)
 	end
 	
+	function PlayerInfoComponent.Equipment:update_settings()
+		if self:set_enabled("setting", self._settings.EQUIPMENT) then
+			self._owner:arrange()
+		end
+	end
+	
+	function PlayerInfoComponent.Equipment:set_is_ai(state)
+		if PlayerInfoComponent.Equipment.super.set_is_ai(self, state) and self:set_enabled("ai", not self._is_ai) then
+			self._owner:arrange()
+		end
+	end
+	
 	function PlayerInfoComponent.Equipment:arrange()
-		local MARGIN = 2
+		local MARGIN = self._panel:h() * 0.04
 		local i = 0
-		local w = 0--self._horizontal and 0 or self._panel:w()
-		local h = self._horizontal and self._panel:h() or 0
+		local w = 0
+		local h = self._panel:h()
 		
 		for _, name in ipairs(self._equipment_types) do
 			local panel = self._panel:child(name)
-			local element_w = 0
-		
+			local panel_w = 0
+			
 			if panel:visible() then
-				i = i + 1
-				
 				local icon = panel:child("icon")
 				local amount = panel:child("amount")
-				
 				local _, _, text_w, _ = amount:text_rect()
+				
 				amount:set_w(text_w)
-				amount:set_left(icon:right() + MARGIN)
-				
-				element_w = element_w + icon:w()
-				element_w = element_w + MARGIN
-				element_w = element_w + amount:w() + MARGIN
-				panel:set_w(element_w)
-				
-				if self._horizontal then
-					w = w + panel:w()
-					panel:set_x((i-1) * panel:w())
-				else
-					w = math.max(w, panel:w())
-					h = h + panel:h()
-					panel:set_y((i-1) * panel:h())
-				end
+				panel_w = panel_w + icon:w() + MARGIN + amount:w() + MARGIN
+				w = math.max(w, panel_w)
 			end
 		end
 		
-		local changed = self:set_enabled("active", i > 0)
-		changed = changed or self:set_size(w, h)
+		for _, name in ipairs(self._equipment_types) do
+			local panel = self._panel:child(name)
+			
+			if panel:visible() then
+				local icon = panel:child("icon")
+				local amount = panel:child("amount")
+				
+				panel:set_w(w)
+				amount:set_right(w)
+				panel:set_y(i * panel:h())
+				i = i + 1
+			end
+		end
 		
-		if changed then
+		local change_enable = self:set_enabled("active", i > 0)
+		local change_size = self:set_size(w, h)
+		if change_enable or change_size then
 			self._owner:arrange()
 		end
 	end
@@ -2450,14 +2430,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	
 	PlayerInfoComponent.SpecialEquipment = PlayerInfoComponent.SpecialEquipment or class(PlayerInfoComponent.Base)
-	
-	function PlayerInfoComponent.SpecialEquipment:init(panel, owner, height)
+	function PlayerInfoComponent.SpecialEquipment:init(panel, owner, height, settings)
 		PlayerInfoComponent.SpecialEquipment.super.init(self, panel, owner, "special_equipment", 0, height)
 		
-		self._item_size = height / 3
+		self._settings = settings
+		self._items_per_column = self._settings.SPECIAL_EQUIPMENT_ROWS or 3
 		self._special_equipment = {}
 		
-		self:set_enabled("has_items", false)
+		self:set_enabled("active", false)
 		
 		self._owner:register_listener("SpecialEquipment", { "add_special_equipment" }, callback(self, self, "add"), false)
 		self._owner:register_listener("SpecialEquipment", { "remove_special_equipment" }, callback(self, self, "remove"), false)
@@ -2467,25 +2447,43 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.SpecialEquipment:destroy()
 		self._owner:unregister_listener("SpecialEquipment", { "clear_special_equipment", "special_equipment_amount", "remove_special_equipment", "add_special_equipment" })
+		PlayerInfoComponent.SpecialEquipment.super.destroy(self)
+	end
+	
+	function PlayerInfoComponent.SpecialEquipment:update_settings()
+		self:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
 		
-		PlayerInfoComponent.Equipment.super.destroy(self)
+		if self._items_per_column ~= (self._settings.SPECIAL_EQUIPMENT_ROWS or 3) then
+			self._items_per_column = self._settings.SPECIAL_EQUIPMENT_ROWS or 3
+			for i, panel in ipairs(self._special_equipment) do
+				self:_scale_item(panel)
+			end
+		end
+		
+		self:arrange()
+	end
+	
+	function PlayerInfoComponent.SpecialEquipment:set_is_ai(state)
+		if PlayerInfoComponent.SpecialEquipment.super.set_is_ai(self, state) and self:set_enabled("ai", not self._is_ai) then
+			self._owner:arrange()
+		end
 	end
 	
 	function PlayerInfoComponent.SpecialEquipment:arrange()
+		local rescale = false
 		local w = 0
 		local h = self._panel:h()
-		local items_per_column = math.floor(self._panel:h() / self._item_size)
 		
 		for i, panel in ipairs(self._special_equipment) do
-			local column = math.floor((i-1) / items_per_column)
-			local row = (i-1) % items_per_column
+			local column = math.floor((i-1) / self._items_per_column)
+			local row = (i-1) % self._items_per_column
 			panel:set_left(column * panel:w())
 			panel:set_top(row * panel:h())
 			w = (column+1) * panel:w()
 		end
 		
 		if self:set_size(w, h) then
-			self:set_enabled("has_items", w > 0)
+			self:set_enabled("active", w > 0)
 			self._owner:arrange()
 		end
 		
@@ -2498,8 +2496,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		local panel = self._panel:panel({
 			name = id,
-			h = self._item_size,
-			w = self._item_size,
 		})
 		
 		local texture, texture_rect = tweak_data.hud_icons:get_icon_data(icon)
@@ -2508,8 +2504,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			texture = texture,
 			texture_rect = texture_rect,
 			color = Color.white,
-			w = panel:w(),
-			h = panel:h()
 		})
 		
 		local flash_icon = panel:bitmap({
@@ -2518,8 +2512,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			texture_rect = texture_rect,
 			color = tweak_data.hud.prime_color,
 			layer = icon:layer() + 1,
-			w = panel:w() + 2,
-			h = panel:w() + 2
 		})
 		flash_icon:set_center(icon:center())
 		
@@ -2529,25 +2521,19 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			color = Color.white,
 			layer = flash_icon:layer() + 1,
 			visible = false,
-			w = panel:w(),
-			h = panel:h(),
-			x = panel:w()/4,
-			y = panel:h()/4,
 		})
 		
 		local amount_text = panel:text({
 			name = "amount",
-			font = "fonts/font_small_noshadow_mf",
-			font_size = amount_bg:h() * 0.5,
 			color = Color.black,
 			align = "center",
 			vertical = "center",
 			layer = amount_bg:layer() + 1,
-			w = amount_bg:w(),
-			h = amount_bg:h(),
+			font = "fonts/font_small_noshadow_mf",
 			visible = false,
 		})
-		amount_text:set_center(amount_bg:center())
+		
+		self:_scale_item(panel)
 		
 		table.insert(self._special_equipment, panel)
 		self:arrange()
@@ -2586,9 +2572,40 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:arrange()
 	end
 	
+	function PlayerInfoComponent.SpecialEquipment:_scale_item(panel)
+		local icon = panel:child("icon")
+		local flash_icon = panel:child("flash_icon")
+		local amount_bg = panel:child("amount_bg")
+		local amount_text = panel:child("amount")
+		
+		local size = math.floor(self._panel:h() / self._items_per_column)
+		
+		panel:set_size(size, size)
+		icon:set_size(size, size)
+		if flash_icon then
+			flash_icon:set_size(size+2, size+2)
+			flash_icon:set_center(icon:center())
+		end
+		amount_bg:set_size(size, size)
+		amount_bg:set_position(size * 0.25, size * 0.25)
+		amount_text:set_size(amount_bg:w(), amount_bg:h())
+		amount_text:set_font_size(amount_bg:h() * 0.5)
+		amount_text:set_center(amount_bg:center())
+	end
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	
+
 	
 	PlayerInfoComponent.Interaction = PlayerInfoComponent.Interaction or class(PlayerInfoComponent.Base)
-	
 	function PlayerInfoComponent.Interaction:init(panel, owner, height, min_duration)
 		PlayerInfoComponent.Interaction.super.init(self, panel, owner, "interaction", 100, height)
 		
@@ -2789,11 +2806,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	
-
-	
 	--Unused, remember to update arrange handling
 	PlayerInfoComponent.Throwable = PlayerInfoComponent.Throwable or class(PlayerInfoComponent.Base)
-	
 	function PlayerInfoComponent.Throwable:init(panel, owner, height)
 		PlayerInfoComponent.Throwable.super.init(self, panel, owner, "throwable", 0, height)
 			
@@ -2944,15 +2958,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	
 	PlayerInfoComponent.Melee = PlayerInfoComponent.Melee or class(PlayerInfoComponent.Base)
-	
-	
 	PlayerInfoComponent.Armor = PlayerInfoComponent.Armor or class(PlayerInfoComponent.Base)
-	
-	
 	PlayerInfoComponent.Deployable = PlayerInfoComponent.Deployable or class(PlayerInfoComponent.Base)
 	
 end
-
 
 if RequiredScript == "lib/managers/hudmanagerpd2" then
 	
