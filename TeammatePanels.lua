@@ -15,7 +15,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		PLAYER = {
 			SCALE = 1,			--Scale of all elements of the panel
-			OPACITY = 0.75,	--Transparency/alpha of panel (1 is solid, 0 is invisible)
+			OPACITY = 0.9,	--Transparency/alpha of panel (1 is solid, 0 is invisible)
 			
 			--NAME = true,	--Show name
 			--RANK = true,	--Show infamy/level
@@ -69,7 +69,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		TEAMMATE = {
 			--For descriptions, see player panel settings
 			SCALE = 0.8,
-			OPACITY = 0.75,
+			OPACITY = 0.9,
 			
 			NAME = true,
 			RANK = true,
@@ -1805,13 +1805,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.CenterPanel:arrange()
+		local MARGIN = 2
 		local h = self._panel:h()
-		local w = 0
+		local w = MARGIN
 		
 		for _, component in ipairs(self._non_interaction_components) do
 			if component:visible() then
 				component:set_x(w)
-				w = w + component:w()
+				w = w + component:w() + MARGIN
 			end
 		end
 		
@@ -1822,7 +1823,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			w = math.max(w, self._interaction:w())
 		end
 		
-		local enable_changed = self:set_enabled("panel_size", w > 0)
+		local enable_changed = self:set_enabled("panel_size", w > MARGIN)
 		local size_change = self:set_size(w, h)
 		
 		if enable_changed or size_change then
@@ -1851,14 +1852,14 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.CenterPanel:_fade_in_interaction(panel)
-		self._interaction:set_enabled("active", true)
+		coroutine.yield()
+		
+		self:arrange()
 		
 		if self._interaction:visible() then
-			local rate = 5	--0.5 sec fade time
+			local rate = 2
 			local alpha = self._interaction:alpha()
 			local goal = 1
-		
-			self:arrange()
 			
 			while self._interaction:alpha() < goal do
 				alpha = alpha + coroutine.yield() * rate
@@ -1868,24 +1869,16 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 					component:set_alpha(1-alpha)
 				end
 			end
-			
-			for _, component in pairs(self._non_interaction_components) do
-				component:set_enabled("active", false)
-			end
 		end
 	end
 	
 	function PlayerInfoComponent.CenterPanel:_fade_out_interaction(panel)
+		wait(0.35)
+	
 		if self._interaction:visible() then
-			local rate = 5	--0.5 sec fade time
+			local rate = 2
 			local alpha = self._interaction:alpha()
 			local goal = 0
-		
-			for _, component in pairs(self._non_interaction_components) do
-				component:set_enabled("active", true)
-			end
-			
-			self:arrange()
 			
 			while self._interaction:alpha() > goal do
 				alpha = alpha - coroutine.yield() * rate
@@ -1897,8 +1890,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			end
 			
 			self._interaction:set_enabled("active", false)
-			
-			wait(0.01)
 			self:arrange()
 		end
 	end
@@ -2646,7 +2637,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	PlayerInfoComponent.Interaction = PlayerInfoComponent.Interaction or class(PlayerInfoComponent.Base)
 	function PlayerInfoComponent.Interaction:init(panel, owner, height, settings)
-		PlayerInfoComponent.Interaction.super.init(self, panel, owner, "interaction", 100, height)
+		PlayerInfoComponent.Interaction.super.init(self, panel, owner, "interaction", 0, height)
 		
 		self._settings = settings
 		self._min_width = 0
@@ -2664,13 +2655,20 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			name = "text",
 			color = Color.white,
 			h = self._panel:h() * 0.5,
-			w = self._panel:w(),
 			halign = "grow",
 			vertical = "center",
 			align = "center",
 			font_size = self._panel:h() * 0.3,
 			font = tweak_data.hud_players.name_font,
 		})
+		
+		self._progress_bar_bg = self._panel:rect({
+			name = "progress_bar_bg",
+			color = Color.black,
+			align = "center",
+			h = self._panel:h() * 0.35,
+		})
+		self._progress_bar_bg:set_top(self._text:bottom())
 		
 		self._progress_bar_outline = self._panel:bitmap({
 			name = "progress_bar_outline",
@@ -2679,27 +2677,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			w = self._panel:h() * 0.35 * 1.2,
 			layer = 10,
 			rotation = 90,
-			visible = false,	--TODO
 		})
-		
-		self._progress_bar_bg = self._panel:rect({
-			name = "progress_bar_bg",
-			color = Color.black,
-			halign = "scale",
-			valign = "scale",
-			align = "center",
-			h = self._panel:h() * 0.35,
-			w = 80,
-		})
-		self._progress_bar_bg:set_top(self._text:bottom())
-		self._progress_bar_bg:set_center_x(50)
 		
 		self._progress_bar = self._panel:gradient({
 			name = "progress_bar",
 			alpha = 0.75,
 			layer = self._progress_bar_bg:layer() + 1,
 			h = self._progress_bar_bg:h(),
-			w = self._progress_bar_bg:w(),
 		})
 		self._progress_bar:set_center_y(self._progress_bar_bg:center_y())
 		
@@ -2717,6 +2701,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._progress_timer:set_center_y(self._progress_bar:center_y())
 		
 		self:set_enabled("active", false)
+		self:set_alpha(0)
 
 		self._owner:register_listener("Interaction", { "interaction_start" }, callback(self, self, "start"), false)
 		self._owner:register_listener("Interaction", { "interaction_stop" }, callback(self, self, "stop"), false)
@@ -2736,9 +2721,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._progress_bar_bg:set_w(w * 0.8)
 			self._progress_bar_bg:set_center_x(w/2)
 			self._progress_bar:set_x(self._progress_bar_bg:x())
-			--TODO
-			--self._progress_bar_outline:set_h(self._progress_bar_bg:w() * 1.05)
-			--self._progress_bar_outline:set_center(self._progress_bar_bg:center())
+			self._progress_bar_outline:set_h(self._progress_bar_bg:w() * 1.05)
+			self._progress_bar_outline:set_center(self._progress_bar_bg:center())
 			
 			self._owner:arrange()
 		end
@@ -2758,6 +2742,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			local action_text_id = tweak_data.interaction[id] and tweak_data.interaction[id].action_text_id or "hud_action_generic"
 			local text = action_text_id and managers.localization:text(action_text_id) or ""
 			
+			self:set_enabled("active", true)
 			self._text:set_color(Color.white)
 			self._text:set_text(string.format("%s (%.1fs)", utf8.to_upper(text), timer))
 			self:arrange()
@@ -2770,6 +2755,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			self._panel:stop()
 			self._text:set_color(success and Color.green or Color.red)
 			self._text:set_text(success and "DONE" or "ABORTED")
+			--self._interaction:set_enabled("active", false)
+			--self:arrange()
 		end
 	end
 	
