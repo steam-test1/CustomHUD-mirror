@@ -365,12 +365,12 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("stored_health_max", amount)
 	end
 	
-	function HUDTeammateCustom:set_downs(value)
-		self:call_listeners("set_downs", value)
+	function HUDTeammateCustom:set_revives(value)
+		self:call_listeners("set_revives", value)
 	end
 	
-	function HUDTeammateCustom:decrement_downs()
-		self:call_listeners("decrement_downs")
+	function HUDTeammateCustom:increment_downs()
+		self:call_listeners("increment_downs")
 	end
 	
 	function HUDTeammateCustom:reset_downs()
@@ -786,7 +786,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.PlayerInfo:arrange()
-		local MARGIN = self._panel:h() * 0.1
+		local MARGIN = 3
 		local h = self._panel:h()
 		local w = 0
 	
@@ -1300,23 +1300,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			alpha = 0.5,
 			h = size,
 			w = size,
-			layer = self._health_radial:layer() + 1,
+			layer = self._health_radial:layer() - 1,
 		})
-		
-		self._downs_counter = self._panel:text({
-			name = "downs",
-			color = Color.white,
-			align = "right",
-			vertical = "bottom",
-			h = size * 0.5,
-			w = size * 0.5,
-			font_size = size * 0.35,
-			font = "fonts/font_small_shadow_mf",
-			layer = self._stored_health_radial:layer() + 1,
-			visible = HUDManager.DOWNS_COUNTER_PLUGIN or false,
-		})
-		self._downs_counter:set_bottom(size)
-		self._downs_counter:set_right(size)
 		
 		self._armor_radial = self._panel:bitmap({
 			name = "armor_radial",
@@ -1354,6 +1339,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			w = size,
 			layer = self._armor_radial:layer() + 1,
 		})
+		
+		self._downs_counter = self._panel:text({
+			name = "downs",
+			color = Color.white,
+			align = "right",
+			vertical = "bottom",
+			h = size * 0.5,
+			w = size * 0.5,
+			font_size = size * 0.35,
+			font = "fonts/font_small_shadow_mf",
+			layer = self._damage_indicator:layer() + 1,
+			visible = HUDManager.DOWNS_COUNTER_PLUGIN or false,
+		})
+		self._downs_counter:set_bottom(size)
+		self._downs_counter:set_right(size)
 		
 		self._condition_icon = self._panel:bitmap({
 			name = "condition_icon",
@@ -1410,15 +1410,16 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._max_absorb = tweak.cocaine_stacks_dmg_absorption_value * tweak.values.player.cocaine_stack_absorption_multiplier[1] * tweak.max_total_cocaine_stacks  / tweak.cocaine_stacks_convert_levels[2]
 		self._stored_health = 0
 		self._stored_health_max = 0
-		self._max_downs = tweak_data.player.damage.LIVES_INIT	--TODO: Fix for player with check for nine lives bonus
-		self._downs = self._max_downs
+		self._downs = 0
+		self._max_downs = tweak_data.player.damage.LIVES_INIT
+		self._player_downs = self._max_downs + managers.player:upgrade_value("player", "additional_lives", 0)
 		self._reviver_count = 0
 		
 		self._owner:register_listener("PlayerStatus", { "health" }, callback(self, self, "set_health"), false)
 		self._owner:register_listener("PlayerStatus", { "stored_health" }, callback(self, self, "set_stored_health"), false)
 		self._owner:register_listener("PlayerStatus", { "stored_health_max" }, callback(self, self, "set_stored_health_max"), false)
-		self._owner:register_listener("PlayerStatus", { "set_downs" }, callback(self, self, "set_downs"), false)
-		self._owner:register_listener("PlayerStatus", { "decrement_downs" }, callback(self, self, "decrement_downs"), false)
+		self._owner:register_listener("PlayerStatus", { "set_revives" }, callback(self, self, "set_revives"), false)
+		self._owner:register_listener("PlayerStatus", { "increment_downs" }, callback(self, self, "increment_downs"), false)
 		self._owner:register_listener("PlayerStatus", { "reset_downs" }, callback(self, self, "reset_downs"), false)
 		self._owner:register_listener("PlayerStatus", { "armor" }, callback(self, self, "set_armor"), false)
 		self._owner:register_listener("PlayerStatus", { "stamina" }, callback(self, self, "set_stamina"), false)
@@ -1434,7 +1435,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.PlayerStatus:destroy()
 		self._owner:unregister_listener("PlayerStatus", { 
-			"health", "stored_health", "stored_health_max", "set_downs", "decrement_downs", "reset_downs",
+			"health", "stored_health", "stored_health_max", "set_revives", "increment_downs", "reset_downs",
 			"armor",
 			"stamina", "stamina_max",
 			"damage_taken",
@@ -1486,17 +1487,21 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		if self._downs ~= amount then
 			self._downs = amount
 			self._downs_counter:set_text(tostring(amount))
-			self._downs_counter:set_visible(self._downs < self._max_downs)
-			self._downs_counter:set_color(self._downs > 1 and Color.white or Color.red)
+			self._downs_counter:set_visible(self._downs > 0)
+			self._downs_counter:set_color(Color(1, 1-self._downs/self._max_downs, 1-self._downs/self._max_downs))
 		end
 	end
 	
-	function PlayerInfoComponent.PlayerStatus:decrement_downs()
-		self:set_downs(self._downs - 1)
+	function PlayerInfoComponent.PlayerStatus:set_revives(value)
+		self:set_downs(self._player_downs - value)
+	end
+	
+	function PlayerInfoComponent.PlayerStatus:increment_downs()
+		self:set_downs(self._downs + 1)
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:reset_downs()
-		self:set_downs(self._max_downs)
+		self:set_downs(0)
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:set_armor(current, total)
@@ -3219,12 +3224,12 @@ end
 		--TODO
 	end
 	
-	function HUDManager:set_teammate_downs(i, value)
-		self._teammate_panels[i]:set_downs(value or 0)
+	function HUDManager:set_player_revives(i, value)
+		self._teammate_panels[i]:set_revives(value or 0)
 	end
 	
-	function HUDManager:decrement_teammate_downs(i)
-		self._teammate_panels[i]:decrement_downs()
+	function HUDManager:increment_teammate_downs(i)
+		self._teammate_panels[i]:increment_downs()
 	end
 	
 	function HUDManager:reset_teammate_downs(i)

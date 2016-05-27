@@ -8,7 +8,7 @@ if RequiredScript == "lib/units/beings/player/huskplayermovement" then
 	function HuskPlayerMovement:_start_bleedout(...)
 		local crim_data = managers.criminals:character_data_by_unit(self._unit)
 		if crim_data and crim_data.panel_id then
-			managers.hud:decrement_teammate_downs(crim_data.panel_id)
+			managers.hud:increment_teammate_downs(crim_data.panel_id)
 		end
 	
 		return _start_bleedout_original(self, ...)
@@ -42,7 +42,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	local set_mugshot_custody_original = HUDManager.set_mugshot_custody
 	
 	function HUDManager:set_player_health(data, ...)
-		self:set_teammate_downs(HUDManager.PLAYER_PANEL, data.revives)
+		self:set_player_revives(HUDManager.PLAYER_PANEL, data.revives)
 		return set_player_health_original(self, data, ...)
 	end
 	
@@ -56,11 +56,11 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 		return set_mugshot_custody_original(self, id, ...)
 	end
 	
-	HUDManager.set_teammate_downs = HUDManager.set_teammate_downs or function(self, i, value)
+	HUDManager.set_player_revives = HUDManager.set_player_revives or function(self, i, value)
 		--TODO
 	end
 	
-	HUDManager.decrement_teammate_downs = HUDManager.decrement_teammate_downs or function(self, i)
+	HUDManager.increment_teammate_downs = HUDManager.increment_teammate_downs or function(self, i)
 		--TODO
 	end
 	
