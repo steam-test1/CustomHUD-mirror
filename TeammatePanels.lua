@@ -2293,9 +2293,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		for _, mode in ipairs(modes) do
 			local name = mode[1]
-			local text = mode[2]
-			self._fire_modes[name] = text
-			self._fire_mode_count = self._fire_mode_count + 1
+			
+			if not self._fire_modes[name] then
+				self._fire_modes[name] = mode[2]
+				self._fire_mode_count = self._fire_mode_count + 1
+			end
 		end
 		
 		self:update_settings()
