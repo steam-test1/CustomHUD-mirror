@@ -990,6 +990,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._specialization:set_x(w)
 		w = w + self._specialization:w()
 		
+		self._specialization:set_x(0)
+		local w = self._specialization:w() + self._panel:h() * 0.3
+		self._skills:set_x(w)
+		w = w + self._skills:w()
+		
 		if self:set_size(w, self._panel:h()) then
 			self._owner:arrange()
 		end
@@ -1001,7 +1006,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			
 		if name_id then
 			local text = managers.localization:text(name_id)
-			self._specialization:set_text(string.format("%s: %d", text, level))
+			self._specialization:set_text(string.format("%s: %d |", text, level))
 			local _, _, w, _ = self._specialization:text_rect()
 			self._specialization:set_w(w)
 			self:arrange()
@@ -1010,11 +1015,22 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	
 	function PlayerInfoComponent.Build:set_skills(data)
 		local trees = { "M", "E", "T", "G", "F" }
-		local text = "|"
+		local text = ""
 		
-		for tree, skills in ipairs(data) do
-			if tonumber(skills) > 0 then
-				text = string.format("%s %s:%02d |", text, trees[tree] or tostring(tree), tonumber(skills))
+		for tree = 1, #trees, 1 do
+			local tree_has_points = false
+			local skill_string = ""
+			
+			for sub_tree = 1, 3, 1 do
+				local skills = data[(tree-1) * 3 + sub_tree]
+				skill_string = string.format("%s%02d%s", skill_string, tonumber(skills), sub_tree < 3 and "|" or "")
+				if tonumber(skills) > 0 then
+					tree_has_points = true
+				end
+			end
+			
+			if tree_has_points then
+				text = string.format("%s%s:%s%s", text, trees[tree] or tostring(tree), skill_string, tree < #trees and " " or "")
 			end
 		end
 		
