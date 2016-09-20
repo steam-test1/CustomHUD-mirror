@@ -615,6 +615,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:call_listeners("damage_taken")
 	end
 	
+	function HUDTeammateCustom:get_name()
+		return self._last_name
+	end
+	
+	function HUDTeammateCustom:set_ai_stopped(status)
+		if status and not self._ai then
+			return
+		end
+		
+		self:call_listeners("ai_stopped", status)
+	end
+	
 	--Failsafe for unhandled functions
 	for id, ptr in pairs(HUDTeammate) do
 		if type(ptr) == "function" then
@@ -1228,10 +1240,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		self._owner:register_listener("Callsign", { "callsign" }, callback(self, self, "set_id"), false)
 		self._owner:register_listener("Callsign", { "voice_com" }, callback(self, self, "set_voice_com_active"), false)
+		self._owner:register_listener("Callsign", { "ai_stopped" }, callback(self, self, "set_ai_stopped"), false)
 	end
 	
 	function PlayerInfoComponent.Callsign:destroy()
-		self._owner:unregister_listener("Callsign", { "callsign", "voice_com" })
+		self._owner:unregister_listener("Callsign", { "callsign", "voice_com", "ai_stopped" })
 		PlayerInfoComponent.Callsign.super.destroy(self)
 	end
 	
@@ -1250,6 +1263,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		if status and not self._animating_voice_com then
 			self._icon:animate(callback(self, self, "_animate_voice_com"))
+		end
+	end
+	
+	function PlayerInfoComponent.Callsign:set_ai_stopped(status)
+		if self._ai_stopped ~= status then
+			self._ai_stopped = status
+			
+			if status then
+				self._icon:set_image(tweak_data.hud_icons.ai_stopped.texture, tweak_data.hud_icons.ai_stopped.texture_rect)
+			else
+				self._icon:set_image("guis/textures/pd2/hud_tabs", 84, 34, 19, 19)
+			end
 		end
 	end
 	
@@ -3126,6 +3151,42 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	self:set_teammate_callsign(HUDManager.PLAYER_PANEL, color_id)
 	self:set_teammate_name(HUDManager.PLAYER_PANEL, managers.network:session():local_peer():name())
 end
+	
+	--HARD OVERRIDE: Replaced because original function dumps all over basic OO-programming practices...
+	function HUDManager:set_ai_stopped(ai_id, stopped)
+		local panel = self._teammate_panels[ai_id]
+		
+		if not panel then
+			return
+		end
+		
+		panel:set_ai_stopped(stopped)
+		
+		
+		local name = panel:get_name()
+		
+		local label
+		for _, lbl in ipairs(self._hud.name_labels) do
+			if string.gsub(lbl.character_name, "%W", "") == name then
+				label = lbl
+				break
+			end
+		end
+		
+		if label then
+			if stopped then
+				local label_stop_icon = label.panel:bitmap({
+					name = "stopped",
+					texture = tweak_data.hud_icons.ai_stopped.texture,
+					texture_rect = tweak_data.hud_icons.ai_stopped.texture_rect
+				})
+				label_stop_icon:set_right(label.text:left())
+				label_stop_icon:set_center_y(label.text:center_y())
+			elseif label.panel:child("stopped") then
+				label.panel:remove(label.panel:child("stopped"))
+			end
+		end
+	end
 	
 	--NEW FUNCTIONS
 	function HUDManager:arrange_teammate_panels()
