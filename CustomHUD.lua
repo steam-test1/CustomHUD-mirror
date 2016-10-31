@@ -168,14 +168,16 @@ end
 	
 if RequiredScript == "lib/managers/hud/hudheisttimer" then
 	
-	function HUDHeistTimer:init(hud)
+	function HUDHeistTimer:init(hud, tweak_hud, ...)
+		self._enabled = not tweak_hud.no_timer
+	
 		self._hud_panel = hud.panel
 		if self._hud_panel:child("heist_timer_panel") then
 			self._hud_panel:remove(self._hud_panel:child("heist_timer_panel"))
 		end
 		
 		self._heist_timer_panel = self._hud_panel:panel({
-			visible = true,
+			visible = self._enabled and true or false,
 			name = "heist_timer_panel",
 			h = 40,
 			w = 50,
