@@ -1381,6 +1381,39 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			layer = self._armor_radial:layer() + 1,
 		})
 		
+		self._downs_panel = self._panel:panel({
+			h = size * 0.5,
+			w = size * 0.5,
+			visible = false,
+			layer = self._damage_indicator:layer() + 1,
+		})
+		self._downs_panel:set_bottom(size)
+		self._downs_panel:set_right(size)
+		
+		local downs_bg = self._downs_panel:bitmap({
+			name = "amount_bg",
+			h = self._downs_panel:h(),
+			w = self._downs_panel:w(),
+			texture = "guis/textures/pd2/equip_count",
+			color = Color.white,
+			blend_mode = "normal",
+		})
+		
+		self._downs_counter = self._downs_panel:text({
+			name = "downs",
+			color = Color.black,
+			align = "center",
+			vertical = "center",
+			h = downs_bg:h(),
+			w = downs_bg:w(),
+			font_size = downs_bg:h() * 0.65,
+			font = "fonts/font_medium_mf",
+			layer = downs_bg:layer() + 1,
+			blend_mode = "normal",
+		})
+		
+		
+		--[[
 		self._downs_counter = self._panel:text({
 			name = "downs",
 			color = Color.white,
@@ -1395,6 +1428,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		})
 		self._downs_counter:set_bottom(size)
 		self._downs_counter:set_right(size)
+		]]
 		
 		self._condition_icon = self._panel:bitmap({
 			name = "condition_icon",
@@ -1451,10 +1485,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._max_absorb = tweak.cocaine_stacks_dmg_absorption_value * tweak.values.player.cocaine_stack_absorption_multiplier[1] * tweak.max_total_cocaine_stacks  / tweak.cocaine_stacks_convert_levels[2]
 		self._stored_health = 0
 		self._stored_health_max = 0
-		self._downs = 0
-		self._max_downs = tweak_data.player.damage.LIVES_INIT
-		self._player_downs = self._max_downs + managers.player:upgrade_value("player", "additional_lives", 0)
 		self._reviver_count = 0
+		self._max_downs = Global.game_settings.difficulty == "sm_wish" and 2 or tweak_data.player.damage.LIVES_INIT
+		self._downs = 0
+		self._player_max_lives = self._max_downs + managers.player:upgrade_value("player", "additional_lives", 0)
+		self._player_lives = self._player_max_lives
 		
 		self._owner:register_listener("PlayerStatus", { "health" }, callback(self, self, "set_health"), false)
 		self._owner:register_listener("PlayerStatus", { "stored_health" }, callback(self, self, "set_stored_health"), false)
@@ -1527,14 +1562,27 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.PlayerStatus:set_downs(amount)
 		if self._downs ~= amount then
 			self._downs = amount
-			self._downs_counter:set_text(tostring(amount))
-			self._downs_counter:set_visible(self._downs > 0)
-			self._downs_counter:set_color(Color(1, 1-self._downs/self._max_downs, 1-self._downs/self._max_downs))
+			self._downs_panel:set_visible(self._downs > 0)
+			self._downs_counter:set_text(tostring(self._downs))
+			self._downs_counter:set_color((self._downs < self._max_downs - 1) and  Color.black or Color.red)
 		end
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:set_revives(value)
-		self:set_downs(self._player_downs - value)
+		if self._player_lives ~= value then
+			self._player_lives = value
+			self._downs_panel:set_visible(self._player_lives < self._player_max_lives and self._player_lives > 0)
+			self._downs_counter:set_text(tostring(self._player_lives - 1))
+			self._downs_counter:set_color((self._player_lives <= 1) and Color.red or Color.black)
+			
+			if self._player_lives == 1 then
+				self._downs_counter:stop()
+				self._downs_counter:animate(callback(self, self, "_animate_low_life"), self._downs_panel:h() * 0.50, self._downs_panel:h() * 0.80)
+			else
+				self._downs_counter:stop()
+				self._downs_counter:set_font_size(self._downs_panel:h() * 0.65)
+			end
+		end
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:increment_downs()
@@ -1671,6 +1719,16 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 		
 		timer:set_text("0")
+	end
+	
+	function PlayerInfoComponent.PlayerStatus:_animate_low_life(text, min_size, max_size)
+		local t = 0
+		
+		while alive(text) do
+			local r = math.sin(t * 360) * 0.5 + 0.5
+			text:set_font_size(math.lerp(min_size, max_size, r))
+			t = t + coroutine.yield()
+		end
 	end
 	
 	
