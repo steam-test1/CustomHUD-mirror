@@ -1325,6 +1325,20 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			texture_rect = { 64, 0, -64, 64 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
+			alpha = 0.6,
+			color = Color(1, 1, 1),
+			h = size,
+			w = size,
+			layer = health_bg:layer() + 1,
+		})
+		
+		self._health_radial_old = self._panel:bitmap({
+			name = "health_radial_old",
+			texture = "guis/textures/pd2/hud_health",
+			texture_rect = { 64, 0, -64, 64 },
+			render_template = "VertexColorTexturedRadial",
+			blend_mode = "add",
+			alpha = 0.4,
 			color = Color(1, 1, 1),
 			h = size,
 			w = size,
@@ -1483,6 +1497,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		local tweak = tweak_data.upgrades
 		self._max_absorb = tweak.cocaine_stacks_dmg_absorption_value * tweak.values.player.cocaine_stack_absorption_multiplier[1] * tweak.max_total_cocaine_stacks  / tweak.cocaine_stacks_convert_levels[2]
+		self._health_ratio = 1
 		self._stored_health = 0
 		self._stored_health_max = 0
 		self._reviver_count = 0
@@ -1543,10 +1558,13 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:set_health(current, total)
-		local ratio = current / total
-		self:set_stored_health_max(1-ratio)
-		self._health_radial:set_color(Color(ratio, 1, 1))
-		self._stored_health_radial:set_rotation(-ratio * 360)
+		local old_ratio = self._health_ratio
+		self._health_ratio = current / total
+		
+		if old_ratio ~= self._health_ratio then
+			self._health_radial:stop()
+			self._health_radial:animate(callback(self, self, "_animate_health_damage"), old_ratio, self._health_ratio)
+		end
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:set_stored_health(amount)
@@ -1729,6 +1747,29 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			text:set_font_size(math.lerp(min_size, max_size, r))
 			t = t + coroutine.yield()
 		end
+	end
+	
+	function PlayerInfoComponent.PlayerStatus:_animate_health_damage(o, old, new)
+		local decrease = old > new
+		local dr = old - new
+		local T = math.clamp(math.abs(dr), 0.1, 0.3)
+		local t = T
+		
+		self._health_radial_old:set_color(Color(old, 1, 1))
+		
+		while t > 0 do
+			t = math.max(0, t - coroutine.yield())
+			local r = new + t/T * dr
+			
+			self:set_stored_health_max(1-r)
+			self._health_radial:set_color(Color(r, 1, 1))
+			self._stored_health_radial:set_rotation(-r * 360)
+			if not decrease then
+				self._health_radial_old:set_color(Color(r, 1, 1))
+			end
+		end
+		
+		self._health_radial_old:set_color(Color(new, 1, 1))
 	end
 	
 	
