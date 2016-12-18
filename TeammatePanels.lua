@@ -437,7 +437,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:set_grenades_amount(data)
-		if data.amount then
+		if data.ability then
+			self:set_ability_cooldown(data)
+		elseif data.amount then
 			self:call_listeners("throwable_amount", data.amount)
 		end
 	end
@@ -625,6 +627,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 		
 		self:call_listeners("ai_stopped", status)
+	end
+	
+	function HUDTeammateCustom:set_ability_cooldown(data)
+		self:call_listeners("ability_cooldown", data.cooldown)
+	end
+	
+	function HUDTeammateCustom:set_ability_radial(data)
+		self:call_listeners("ability_radial", data.current, data.total)
+	end
+	
+	function HUDTeammateCustom:activate_ability_radial(time)
+		self:call_listeners("activate_ability_radial", time)
 	end
 	
 	--Failsafe for unhandled functions
@@ -1495,6 +1509,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		
 		--self._maniac_stack_radial = ...
 		
+		self._radial_ability = self._panel:bitmap({
+			name = "radial_ability",
+			texture = "guis/dlcs/chico/textures/pd2/hud_fearless",
+			texture_rect = { 0, 0, 64, 64 },
+			render_template = "VertexColorTexturedRadial",
+			blend_mode = "add",
+			h = size,
+			w = size,
+			visible = false,
+			layer = self._condition_icon:layer(),
+		})
+		
 		local tweak = tweak_data.upgrades
 		self._max_absorb = tweak.cocaine_stacks_dmg_absorption_value * tweak.values.player.cocaine_stack_absorption_multiplier[1] * tweak.max_total_cocaine_stacks  / tweak.cocaine_stacks_convert_levels[2]
 		self._health_ratio = 1
@@ -1522,6 +1548,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._owner:register_listener("PlayerStatus", { "pause_condition_timer" }, callback(self, self, "pause_timer"), false)
 		self._owner:register_listener("PlayerStatus", { "custom_radial" }, callback(self, self, "set_progress"), false)
 		self._owner:register_listener("PlayerStatus", { "absorb_active" }, callback(self, self, "set_absorb"), false)
+		self._owner:register_listener("PlayerStatus", { "ability_radial" }, callback(self, self, "set_ability_radial"), false)
+		self._owner:register_listener("PlayerStatus", { "activate_ability_radial" }, callback(self, self, "activate_ability_radial"), false)
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:destroy()
@@ -1533,6 +1561,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			"condition", "start_condition_timer", "stop_condition_timer", "pause_condition_timer",
 			"custom_radial",
 			"absorb_active",
+			"ability_radial", "activate_ability_radial",
 		})
 		
 		PlayerInfoComponent.PlayerStatus.super.destroy(self)
@@ -1688,6 +1717,17 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		--self._maniac_stack_radial:set_color(Color(r, 1, 1))
 	end
 	
+	function PlayerInfoComponent.PlayerStatus:set_ability_radial(current, total)
+		local r = current / total
+		self._radial_ability:set_color(Color(r, 1, 1))
+		self._radial_ability:set_visible(r > 0)
+	end
+	
+	function PlayerInfoComponent.PlayerStatus:activate_ability_radial(duration)
+		self._radial_ability:stop()
+		self._radial_ability:animate(callback(self, self, "_animate_radial_ability"), duration)
+	end
+	
 	function PlayerInfoComponent.PlayerStatus:_animate_damage_taken(indicator)
 		local st = 3
 		local t = st
@@ -1772,6 +1812,19 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._health_radial_old:set_color(Color(new, 1, 1))
 	end
 	
+	function PlayerInfoComponent.PlayerStatus:_animate_radial_ability(radial, duration)
+		local T = duration
+		local t = 0
+		
+		radial:show()
+		
+		while t < T do
+			radial:set_color(Color(1-t/T, 1, 1))
+			t = t + coroutine.yield()
+		end
+		
+		radial:hide()
+	end
 	
 	PlayerInfoComponent.Carry = PlayerInfoComponent.Carry or class(PlayerInfoComponent.Base)
 	function PlayerInfoComponent.Carry:init(panel, owner, player_height, team_height, settings)
@@ -2497,10 +2550,11 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._owner:register_listener("Equipment", { "deployable" }, callback(self, self, "set_deployable"), false)
 		self._owner:register_listener("Equipment", { "deployable_amount" }, callback(self, self, "set_deployable_amount"), false)
 		self._owner:register_listener("Equipment", { "deployable_amount_from_string" }, callback(self, self, "set_deployable_amount_from_string"), false)
+		self._owner:register_listener("Equipment", { "ability_cooldown" }, callback(self, self, "set_ability_cooldown"), false)
 	end
 	
 	function PlayerInfoComponent.Equipment:destroy()
-		self._owner:unregister_listener("Equipment", { "deployable_amount_from_string", "deployable_amount", "deployable", "cable_tie_amount", "cable_tie", "throwable_amount", "throwable" })
+		self._owner:unregister_listener("Equipment", { "deployable_amount_from_string", "deployable_amount", "deployable", "cable_tie_amount", "cable_tie", "throwable_amount", "throwable", "ability_cooldown" })
 		PlayerInfoComponent.Equipment.super.destroy(self)
 	end
 	
@@ -2582,8 +2636,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		local text = panel:child("amount")
 		text:set_text(string.format("%02.0f", amount))
 		text:set_range_color(0, amount < 10 and 1 or 0, Color.white:with_alpha(0.5))
-		panel:set_visible(amount > 0)
-		self:arrange()
+		if panel:visible() ~= (amount > 0) then
+			panel:set_visible(amount > 0)
+			self:arrange()
+		end
 	end
 	
 	function PlayerInfoComponent.Equipment:set_deployable(icon)
@@ -2616,6 +2672,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self:arrange()
 	end
 	
+	function PlayerInfoComponent.Equipment:set_ability_cooldown(cooldown)
+		self:set_throwable_amount(cooldown and math.ceil(cooldown) or 0)
+	end
 	
 	PlayerInfoComponent.SpecialEquipment = PlayerInfoComponent.SpecialEquipment or class(PlayerInfoComponent.Base)
 	function PlayerInfoComponent.SpecialEquipment:init(panel, owner, height, settings)
