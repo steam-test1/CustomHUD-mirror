@@ -10,9 +10,9 @@ Hooks:Add("MenuManagerPopulateCustomMenus", "MenuManagerPopulateCustomMenus_Cust
 		
 		--printf("CHANGE SETTING %s > %s: %s", tostring(category), tostring(setting), tostring(value))
 		if category then
-			HUDTeammateCustomMenu.SETTINGS[setting] = value
-		else
 			HUDTeammateCustomMenu.SETTINGS[category][setting] = value
+		else
+			HUDTeammateCustomMenu.SETTINGS[setting] = value
 		end
 	end
 	
@@ -157,6 +157,7 @@ end)
 
 
 HUDTeammateCustomMenu = {
+	--Default settings, will be written to initial settings file and then ignored
 	SETTINGS = {
 		MAX_WEAPONS = 2,	--Number of carried guns (fuck with this at your own risk)
 		
