@@ -8,108 +8,6 @@ printf = printf or function(...) end
 if RequiredScript == "lib/managers/hud/hudteammate" then
 
 	HUDTeammateCustom = HUDTeammateCustom or class()
-
-	--TODO: Switch to setting hierarchy with overloading for player/team instead of separate table?
-	HUDTeammateCustom.SETTINGS = {
-		MAX_WEAPONS = 2,	--Number of carried guns (...just don't...)
-		
-		PLAYER = {
-			SCALE = 1,			--Scale of all elements of the panel
-			OPACITY = 0.9,	--Transparency/alpha of panel (1 is solid, 0 is invisible)
-			
-			--NAME = true,	--Show name
-			--RANK = true,	--Show infamy/level
-			--CHARACTER = true,	--Show character name
-			--LATENCY = true,	--Show latency (not used by player panel)
-			STATUS = true,	--Show health/armor/condition etc.
-			EQUIPMENT = true,	--Show throwables, cable ties and deployables
-			SPECIAL_EQUIPMENT = true,	--Show special equipment/tools (keycards etc.)
-			SPECIAL_EQUIPMENT_ROWS = 3,	--Number of special equipment items in each column
-			CALLSIGN = true,	--Show the callsign and voice chat icon
-			CARRY = true,	--Show currently carried bag
-			BUILD = {	--Show perk deck and number of skills acquired in each tree (not used by player)
-				--Pick max one
-				--HIDE = true,	--Don't show build at all
-				DURATION = 30,	--Time in seconds to show the build from when player joins. Information is hidden when duration has expired, or never removed if value is nil/undefined
-			},
-			WEAPON = {
-				--Show/hide various elements of the weapons panels.
-				--HIDE option hides the element. SELECTED_ONLY shows only if the weapon is currently selected, UNSELECTED_ONLY the reverse
-				--Pick max *one* setting for each element or results are undefined
-				ICON = {
-					HIDE = true,
-					--SELECTED_ONLY = true,
-					--UNSELECTED_ONLY = true,
-				},
-				AMMO = {
-					--HIDE = true,
-					--SELECTED_ONLY = true,
-					--UNSELECTED_ONLY = true,
-					--TOTAL_AMMO_ONLY = true,	--Shows only total ammo for all weapons
-				},
-				FIRE_MODE = {
-					--HIDE = true,
-					--SELECTED_ONLY = true,
-					--UNSELECTED_ONLY = true,
-				},
-			},
-			INTERACTION = {	--(Interaction display only used by teammates, included for reference)
-				--HIDE = true,	--Hides the interaction activity/time/progress
-				MIN_DURATION = 1,	--Shows the interaction display only if interaction duration in seconds exceeds this threshold
-			},
-			KILL_COUNTER = {
-				--Requires external plugin to be loaded, else will be disabled no matter what
-				--HIDE = true,	--Hides the kill counter
-				SHOW_BOT_KILLS = true,	--Show the kill counter for criminal bots
-				SHOW_SPECIAL_KILLS = true,	--Separate counter for specials
-			},
-			ACCURACY = true,	--Show accuracy information
-		},
-		
-		TEAMMATE = {
-			--For descriptions, see player panel settings
-			SCALE = 0.8,
-			OPACITY = 0.9,
-			
-			NAME = true,
-			RANK = true,
-			--CHARACTER = true,
-			LATENCY = true,
-			STATUS = true,
-			EQUIPMENT = true,
-			SPECIAL_EQUIPMENT = true,
-			SPECIAL_EQUIPMENT_ROWS = 3,
-			CALLSIGN = true,
-			CARRY = true,
-			BUILD = {
-				--HIDE = true,
-				DURATION = 30,
-			},
-			WEAPON = {
-				ICON = {
-					--HIDE = true,
-					SELECTED_ONLY = true,
-					--UNSELECTED_ONLY = true,
-				},
-				AMMO = {
-					--HIDE = true,
-					--SELECTED_ONLY = true,
-					--UNSELECTED_ONLY = true,
-					TOTAL_AMMO_ONLY = true,
-				},
-			},
-			INTERACTION = {
-				--HIDE = true,
-				MIN_DURATION = 1
-			},
-			KILL_COUNTER = {
-				--HIDE = true,
-				SHOW_BOT_KILLS = true,
-				SHOW_SPECIAL_KILLS = true,
-			},
-			--ACCURACY = true,	--Unused by non-players for now
-		},
-	}
 	
 	function HUDTeammateCustom:init(id, panel, is_player, alignment)
 		self._panel = panel:panel({
@@ -119,7 +17,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._left_align = alignment == "left"
 		self._listeners = {}
 		self._all_components = {}
-		self._settings = HUDTeammateCustom.SETTINGS[is_player and "PLAYER" or "TEAMMATE"]
+		self._settings = HUDTeammateCustomMenu.SETTINGS[is_player and "player" or "teammate"]
 		self._id = id
 		self._is_player = is_player
 		self._next_latency_update_t = 0
@@ -199,9 +97,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			component:update_settings()
 		end
 		
-		self._panel:set_alpha(self._settings.OPACITY)
-		if self._scale ~= self._settings.SCALE then
-			self._scale = self._settings.SCALE
+		self._panel:set_alpha(self._settings.opacity)
+		if self._scale ~= self._settings.scale then
+			self._scale = self._settings.scale
 			
 			for i, component in ipairs(self._all_components) do
 				--component:rescale(self._scale)	--TODO: Implement rescale function for components
@@ -213,7 +111,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function HUDTeammateCustom:_build_panel()
-		self._scale = (self._settings.SCALE or 1)
+		self._scale = (self._settings.scale or 1)
 		
 		local size = 50 * self._scale
 		local name_size = 20 * self._scale
@@ -351,7 +249,6 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		end
 	end
 	
-
 	
 	function HUDTeammateCustom:set_health(data)
 		self:call_listeners("health", data.current, data.total)
@@ -834,7 +731,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.PlayerInfo:update_settings()
-		self:set_enabled("setting", self._settings.NAME or self._settings.RANK or self._settings.CHARACTER)
+		self:set_enabled("setting", self._settings.name or self._settings.rank or self._settings.character)
 		self:_update_component_visibility()
 	end
 	
@@ -888,9 +785,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.PlayerInfo:_update_component_visibility()
-		self._components.name:set_visible(self._settings.NAME)
-		self._components.character:set_visible(self._settings.CHARACTER and not self._is_ai)
-		self._components.rank:set_visible(self._settings.RANK and not self._is_ai)
+		self._components.name:set_visible(self._settings.name)
+		self._components.character:set_visible(self._settings.character and not self._is_ai)
+		self._components.rank:set_visible(self._settings.rank and not self._is_ai)
 		self:arrange()
 	end
 	
@@ -929,7 +826,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Latency:update_settings()
-		if self:set_enabled("setting", self._settings.LATENCY) then
+		if self:set_enabled("setting", self._settings.latency) then
 			self._owner:arrange()
 		end
 	end
@@ -987,10 +884,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Build:update_settings()
-		if self:set_enabled("setting", not self._settings.BUILD.HIDE) then
+		if self:set_enabled("setting", self._settings.build) then
 			self._owner:arrange()
 		end
-		self._duration = self._settings.BUILD.DURATION
+		self._duration = self._settings.build_duration > 0 and self._settings.build_duration
 	end
 	
 	function PlayerInfoComponent.Build:set_is_ai(state)
@@ -1128,9 +1025,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.KillCounter:update_settings()
-		local setting = self:set_enabled("setting", not self._settings.KILL_COUNTER.HIDE)
 		local plugin = self:set_enabled("plugin", HUDManager.KILL_COUNTER_PLUGIN)
-		local ai = self:set_enabled("ai", self._settings.KILL_COUNTER.SHOW_BOT_KILLS or not self._is_ai)
+		local setting = self:set_enabled("setting", self._settings.kill_counter)
+		local ai = self:set_enabled("ai", self._settings.kill_counter_bots or not self._is_ai)
 		
 		if setting or plugin or ai then
 			self:_update_text()
@@ -1139,7 +1036,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.KillCounter:set_is_ai(state)
-		if PlayerInfoComponent.KillCounter.super.set_is_ai(self, state) and self:set_enabled("ai", self._settings.KILL_COUNTER.SHOW_BOT_KILLS or not self._is_ai) then
+		if PlayerInfoComponent.KillCounter.super.set_is_ai(self, state) and self:set_enabled("ai", self._settings.kill_counter_bots or not self._is_ai) then
 			self._owner:arrange()
 		end
 	end
@@ -1157,7 +1054,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.KillCounter:_update_text()
-		if self._settings.KILL_COUNTER.SHOW_SPECIAL_KILLS then
+		if self._settings.kill_counter_specials then
 			self._text:set_text(string.format("%d/%d", self._kills, self._special_kills))
 		else
 			self._text:set_text(string.format("%d", self._kills))
@@ -1210,8 +1107,8 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.AccuracyCounter:update_settings()
-		local setting = self:set_enabled("setting", self._settings.ACCURACY)
 		local plugin = self:set_enabled("plugin", HUDManager.ACCURACY_PLUGIN)
+		local setting = self:set_enabled("setting", self._settings.accuracy)
 		
 		if setting or plugin then
 			self._owner:arrange()
@@ -1263,7 +1160,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Callsign:update_settings()
-		if self:set_enabled("setting", self._settings.CALLSIGN) then
+		if self:set_enabled("setting", self._settings.callsign) then
 			self._owner:arrange()
 		end
 	end
@@ -1568,7 +1465,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.PlayerStatus:update_settings()
-		if self:set_enabled("setting", self._settings.STATUS) then
+		if self:set_enabled("setting", self._settings.status) then
 			self._owner:arrange()
 		end
 	end
@@ -1866,7 +1763,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Carry:update_settings()
-		if self:set_enabled("setting", self._settings.CARRY) then
+		if self:set_enabled("setting", self._settings.carry) then
 			self._owner:arrange()
 		end
 	end
@@ -2038,7 +1935,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.CenterPanel:_interaction_start(id, timer)
-		if not self._settings.INTERACTION.HIDE and (self._settings.INTERACTION.MIN_DURATION or 0) <= timer then
+		if self._settings.interaction and self._settings.interaction_duration <= timer then
 			self._panel:stop()
 			self._panel:animate(callback(self, self, "_fade_in_interaction"))
 		end
@@ -2100,7 +1997,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._weapons = {}
 		self._aggregate_ammo = {}
 		self._settings = settings
-		self._weapon_count = HUDTeammateCustom.SETTINGS.MAX_WEAPONS
+		self._weapon_count = HUDTeammateCustomMenu.SETTINGS.MAX_WEAPONS
 		self._event_callbacks = {
 			weapon_fire_mode = "set_fire_mode",
 			weapon = "set_weapon",
@@ -2167,7 +2064,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			weapon:update_settings()
 		end
 		
-		self._aggregate_ammo_panel:set_visible(self._settings.WEAPON.AMMO.TOTAL_AMMO_ONLY and true or false)
+		self._aggregate_ammo_panel:set_visible(self._settings.weapon_ammo_aggregate)
 		self:arrange()
 	end
 	
@@ -2359,52 +2256,36 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Weapon:update_settings()
-		local data = self._settings.WEAPON
+		--TODO: Figure out WTF was I thinking with this?
 		
 		local selected = {
 			[self._icon_panel] = true,
-			[self._ammo_panel] = not data.AMMO.TOTAL_AMMO_ONLY,
+			[self._ammo_panel] = not self._settings.weapon_ammo_aggregate,
 			[self._fire_mode_panel] = self._fire_mode_count > 1,
 		}
 		local unselected = {
 			[self._icon_panel] = true,
-			[self._ammo_panel] = not data.AMMO.TOTAL_AMMO_ONLY,
+			[self._ammo_panel] = not self._settings.weapon_ammo_aggregate,
 			[self._fire_mode_panel] = self._fire_mode_count > 1,
 		}
 		
-		if data.ICON.HIDE then
-			selected[self._icon_panel] = selected[self._icon_panel] and false
-			unselected[self._icon_panel] = unselected[self._icon_panel] and false
-		elseif data.ICON.SELECTED_ONLY then
-			selected[self._icon_panel] = selected[self._icon_panel] and true
-			unselected[self._icon_panel] = unselected[self._icon_panel] and false
-		elseif data.ICON.UNSELECTED_ONLY then
-			selected[self._icon_panel] = selected[self._icon_panel] and false
-			unselected[self._icon_panel] = unselected[self._icon_panel] and true
-		end
-		
-		if data.FIRE_MODE then
-			if data.FIRE_MODE.HIDE then
-				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and false
-				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and false
-			elseif data.FIRE_MODE.SELECTED_ONLY then
-				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and true
-				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and false
-			elseif data.FIRE_MODE.UNSELECTED_ONLY then
-				selected[self._fire_mode_panel] = selected[self._fire_mode_panel] and false
-				unselected[self._fire_mode_panel] = unselected[self._fire_mode_panel] and true
+		local function do_update(component, panel)
+			if self._settings[component] == 0 then	--Off
+				selected[panel] = selected[panel] and false
+				unselected[panel] = unselected[panel] and false
+			elseif self._settings[component] == 2 then	--Selected only
+				selected[panel] = selected[panel] and true
+				unselected[panel] = unselected[panel] and false
+			elseif self._settings[component] == 3 then	--Unselected only
+				selected[panel] = selected[panel] and false
+				unselected[panel] = unselected[panel] and true
 			end
 		end
 		
-		if data.AMMO.HIDE then
-			selected[self._ammo_panel] = selected[self._ammo_panel] and false
-			unselected[self._ammo_panel] = unselected[self._ammo_panel] and false
-		elseif data.AMMO.SELECTED_ONLY then
-			selected[self._ammo_panel] = selected[self._ammo_panel] and true
-			unselected[self._ammo_panel] = unselected[self._ammo_panel] and false
-		elseif data.AMMO.UNSELECTED_ONLY then
-			selected[self._ammo_panel] = selected[self._ammo_panel] and false
-			unselected[self._ammo_panel] = unselected[self._ammo_panel] and true
+		do_update("weapon_icon", self._icon_panel)
+		do_update("weapon_ammo", self._ammo_panel)
+		if self._fire_mode_count > 1 then
+			do_update("weapon_fire_mode", self._fire_mode_panel)
 		end
 		
 		self._component_visibility = { selected = selected, unselected = unselected }
@@ -2559,7 +2440,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.Equipment:update_settings()
-		if self:set_enabled("setting", self._settings.EQUIPMENT) then
+		if self:set_enabled("setting", self._settings.equipment) then
 			self._owner:arrange()
 		end
 	end
@@ -2681,7 +2562,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		PlayerInfoComponent.SpecialEquipment.super.init(self, panel, owner, "special_equipment", 0, height)
 		
 		self._settings = settings
-		self._items_per_column = self._settings.SPECIAL_EQUIPMENT_ROWS or 3
+		self._items_per_column = self._settings.special_equipment_rows or 3
 		self._special_equipment = {}
 		
 		self:set_enabled("active", false)
@@ -2698,10 +2579,10 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	end
 	
 	function PlayerInfoComponent.SpecialEquipment:update_settings()
-		self:set_enabled("setting", self._settings.SPECIAL_EQUIPMENT)
+		self:set_enabled("setting", self._settings.special_equipment)
 		
-		if self._items_per_column ~= (self._settings.SPECIAL_EQUIPMENT_ROWS or 3) then
-			self._items_per_column = self._settings.SPECIAL_EQUIPMENT_ROWS or 3
+		if self._items_per_column ~= (self._settings.special_equipment_rows or 3) then
+			self._items_per_column = self._settings.special_equipment_rows or 3
 			for i, panel in ipairs(self._special_equipment) do
 				self:_scale_item(panel)
 			end
@@ -2944,7 +2825,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 	function PlayerInfoComponent.Interaction:start(id, timer)
 		self._panel:stop()
 		
-		if not self._settings.INTERACTION.HIDE and (self._settings.INTERACTION.MIN_DURATION or 0) <= timer then
+		if self._settings.interaction and self._settings.interaction_duration <= timer then
 			local action_text_id = tweak_data.interaction[id] and tweak_data.interaction[id].action_text_id or "hud_action_generic"
 			local text = action_text_id and managers.localization:text(action_text_id) or ""
 			
@@ -3296,19 +3177,19 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 			self._teammate_panels[i]:remove_carry_info(...)
 		end
 		
-		return set_teammate_carry_info_original(self, i, ...)
+		return remove_teammate_carry_info_original(self, i, ...)
 	end
 	
 	--HARD OVERRIDE (4 -> HUDManager.PLAYER_PANEL)
 	function HUDManager:reset_player_hpbar()
-	local crim_entry = managers.criminals:character_static_data_by_name(managers.criminals:local_character_name())
-	if not crim_entry then
-		return
+		local crim_entry = managers.criminals:character_static_data_by_name(managers.criminals:local_character_name())
+		if not crim_entry then
+			return
+		end
+		local color_id = managers.network:session():local_peer():id()
+		self:set_teammate_callsign(HUDManager.PLAYER_PANEL, color_id)
+		self:set_teammate_name(HUDManager.PLAYER_PANEL, managers.network:session():local_peer():name())
 	end
-	local color_id = managers.network:session():local_peer():id()
-	self:set_teammate_callsign(HUDManager.PLAYER_PANEL, color_id)
-	self:set_teammate_name(HUDManager.PLAYER_PANEL, managers.network:session():local_peer():name())
-end
 	
 	--HARD OVERRIDE: Replaced because original function dumps all over basic OO-programming practices...
 	function HUDManager:set_ai_stopped(ai_id, stopped)
@@ -3376,7 +3257,7 @@ end
 			end
 		end
 		
-		if managers.hudlist then
+		if managers.hudlist and managers.hudlist:list("buff_list") then
 			local list_panel = managers.hudlist:list("buff_list"):panel()
 			list_panel:set_bottom(hud_panel:h() - self._teammate_panels[HUDManager.PLAYER_PANEL]:panel():h() - 10)
 		end
@@ -3604,3 +3485,4 @@ if RequiredScript == "lib/managers/hud/hudtemp" then
 	end
 	
 end
+
