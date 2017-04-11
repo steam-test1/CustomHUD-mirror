@@ -1,3 +1,5 @@
+if not CustomHUDMenu.settings.enable_chat then return end
+
 if RequiredScript == "lib/managers/hudmanagerpd2" then
 
 	local setup_endscreen_hud_original = HUDManager.setup_endscreen_hud
@@ -7,21 +9,17 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	end
 	
 	function HUDManager:setup_endscreen_hud(...)
-		if HUDChat.MOUSE_SUPPORT then
-			self._hud_chat_ingame:disconnect_mouse()
-		end
+		self._hud_chat_ingame:disconnect_mouse()
 		return setup_endscreen_hud_original(self, ...)
+	end
+	
+	function HUDManager:change_custom_chat_settings(...)
+		self._hud_chat_ingame:change_settings(...)
 	end
 	
 end
 
 if RequiredScript == "lib/managers/hud/hudchat" then
-	
-	HUDChat.LINE_HEIGHT = 15		--Size of each line in chat (and hence the text size)
-	HUDChat.WIDTH = 350				--Width of the chat window
-	HUDChat.MAX_OUTPUT_LINES = 5	--Number of chat lines to show
-	HUDChat.MAX_INPUT_LINES = 5	--Number of lines of text you can type
-	HUDChat.MOUSE_SUPPORT = false	--For scolling and stuff. Experimental, you have been warned
 	
 	local enter_key_callback_original = HUDChat.enter_key_callback
 	local esc_key_callback_original = HUDChat.esc_key_callback
@@ -30,6 +28,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	
 	function HUDChat:init(ws, hud)
 		local fullscreen = managers.hud:script(PlayerBase.PLAYER_INFO_HUD_FULLSCREEN_PD2)
+		
+		self._settings = CustomHUDMenu.settings.hudchat
 		
 		self._x_offset = (fullscreen.panel:w() - hud.panel:w()) / 2
 		self._y_offset = (fullscreen.panel:h() - hud.panel:h()) / 2
@@ -47,23 +47,11 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		
 		self._panel = self._parent:panel({
 			name = "chat_panel",
-			h = HUDChat.LINE_HEIGHT * (HUDChat.MAX_OUTPUT_LINES + 1),
-			w = HUDChat.WIDTH,
+			h = self._settings.line_height * (self._settings.max_output_lines + 1),
+			w = self._settings.width,
 		})
 		
-		if HUDManager.CUSTOM_TEAMMATE_PANELS then
-			--Custom chat box position
-			self._panel:set_right(self._parent:w())
-			self._panel:set_bottom(self._parent:h())
-			
-			if HUDManager.HAS_MINIMAP then
-				self._panel:move(0, -HUDMiniMap.SIZE[2])
-			end
-		else
-			--Default chat box position
-			self._panel:set_left(0)
-			self._panel:set_bottom(self._parent:h() - 112)
-		end
+		self:move(self._settings.x_offset, self._settings.y_offset)
 		
 		self:_create_output_panel()
 		self:_create_input_panel()
@@ -71,10 +59,14 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 
 	function HUDChat:_create_input_panel()
+		if self._panel:child("input_panel") then
+			self._panel:remove(self._panel:child("input_panel"))
+		end
+	
 		self._input_panel = self._panel:panel({
 			name = "input_panel",
 			alpha = 0,
-			h = HUDChat.LINE_HEIGHT,
+			h = self._settings.line_height,
 			w = self._panel:w(),
 			layer = 1,
 		})
@@ -98,7 +90,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			alpha = 0.5,
 			color = Color.black,
 			layer = -1,
-			h = HUDChat.MAX_INPUT_LINES * HUDChat.LINE_HEIGHT,--self._input_panel:h(),
+			h = self._settings.max_input_lines * self._settings.line_height,--self._input_panel:h(),
 			w = self._input_panel:w(),
 		})
 		
@@ -106,8 +98,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			name = "input_prompt",
 			text = utf8.to_upper(managers.localization:text("debug_chat_say")),
 			font = tweak_data.menu.pd2_small_font,
-			font_size = HUDChat.LINE_HEIGHT * 0.95,
-			h = HUDChat.LINE_HEIGHT,
+			font_size = self._settings.line_height * 0.95,
+			h = self._settings.line_height,
 			align = "left",
 			halign = "left",
 			vertical = "center",
@@ -124,8 +116,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			name = "input_text",
 			text = "",
 			font = tweak_data.menu.pd2_small_font,
-			font_size = HUDChat.LINE_HEIGHT * 0.95,
-			h = HUDChat.LINE_HEIGHT,
+			font_size = self._settings.line_height * 0.95,
+			h = self._settings.line_height,
 			w = self._input_panel:w() - input_prompt:w() - 4,
 			align = "left",
 			halign = "left",
@@ -150,6 +142,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 
 	function HUDChat:_create_output_panel()
+		if self._panel:child("output_panel") then
+			self._panel:remove(self._panel:child("output_panel"))
+		end
+		
 		local output_panel = self._panel:panel({
 			name = "output_panel",
 			h = 0,
@@ -164,7 +160,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			visible = false,
 			blend_mode = "normal",
 			w = 8,
-			h = HUDChat.LINE_HEIGHT * HUDChat.MAX_OUTPUT_LINES,
+			h = self._settings.line_height * self._settings.max_output_lines,
 		})
 		scroll_bar_bg:set_right(output_panel:w())
 		
@@ -222,8 +218,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	function HUDChat:_layout_output_panel()
 		local output_panel = self._panel:child("output_panel")
 		
-		output_panel:set_h(HUDChat.LINE_HEIGHT * math.min(HUDChat.MAX_OUTPUT_LINES, self._total_message_lines))
-		if self._total_message_lines > HUDChat.MAX_OUTPUT_LINES then
+		output_panel:set_h(self._settings.line_height * math.min(self._settings.max_output_lines, self._total_message_lines))
+		if self._total_message_lines > self._settings.max_output_lines then
 			local scroll_bar_bg = output_panel:child("scroll_bar_bg")
 			local scroll_bar_up = output_panel:child("scroll_bar_up")
 			local scroll_bar_down = output_panel:child("scroll_bar_down")
@@ -236,17 +232,28 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			scroll_bar_down:set_bottom(output_panel:h())
 			
 			local positon_height_area = scroll_bar_bg:h() - scroll_bar_up:h() - scroll_bar_down:h() - 4
-			scroll_bar_position:set_h(math.max((HUDChat.MAX_OUTPUT_LINES / self._total_message_lines) * positon_height_area, 3))
+			scroll_bar_position:set_h(math.max((self._settings.max_output_lines / self._total_message_lines) * positon_height_area, 3))
 			scroll_bar_position:set_center_y((1 - self._current_line_offset / self._total_message_lines) * positon_height_area + scroll_bar_up:h() + 2 - scroll_bar_position:h() / 2)
 		end
 		output_panel:set_bottom(self._input_panel:top())
 
-		local y = -self._current_line_offset * HUDChat.LINE_HEIGHT
+		local y = -self._current_line_offset * self._settings.line_height
 		for i = #self._messages, 1, -1 do
 			local msg = self._messages[i]
 			msg.panel:set_bottom(output_panel:h() - y)
 			y = y + msg.panel:h()
 		end
+	end
+	
+	function HUDChat:change_settings(settings)
+		self._settings = settings
+		self:move(self._settings.x_offset, self._settings.y_offset)
+	end
+	
+	function HUDChat:move(xr, yr)
+		local x = (self._parent:w() - self._panel:w()) * xr/100
+		local y = (self._parent:h() - self._panel:h()) * yr/100
+		self._panel:set_position(x, y)
 	end
 	
 	function HUDChat:receive_message(name, message, color, icon)
@@ -280,8 +287,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			name = "time",
 			text = time_format_text,
 			font = tweak_data.menu.pd2_small_font,
-			font_size = HUDChat.LINE_HEIGHT * 0.95,
-			h = HUDChat.LINE_HEIGHT,
+			font_size = self._settings.line_height * 0.95,
+			h = self._settings.line_height,
 			w = msg_panel:w(),
 			x = x_offset,
 			align = "left",
@@ -304,12 +311,12 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 				texture = icon_texture,
 				texture_rect = icon_texture_rect,
 				color = color,
-				h = HUDChat.LINE_HEIGHT * 0.85,
-				w = HUDChat.LINE_HEIGHT * 0.85,
+				h = self._settings.line_height * 0.85,
+				w = self._settings.line_height * 0.85,
 				x = x_offset,
 				layer = 1,
 			})
-			icon_bitmap:set_center_y(HUDChat.LINE_HEIGHT / 2)
+			icon_bitmap:set_center_y(self._settings.line_height / 2)
 			x_offset = x_offset + icon_bitmap:w() + 1
 		end
 		
@@ -317,7 +324,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			name = "msg",
 			text = name .. ": " .. message,
 			font = tweak_data.menu.pd2_small_font,
-			font_size = HUDChat.LINE_HEIGHT * 0.95,
+			font_size = self._settings.line_height * 0.95,
 			w = msg_panel:w() - x_offset,
 			x = x_offset,
 			align = "left",
@@ -333,10 +340,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		local no_lines = message_text:number_of_lines()
 		
 		message_text:set_range_color(0, utf8.len(name) + 1, color)
-		message_text:set_h(HUDChat.LINE_HEIGHT * no_lines)
+		message_text:set_h(self._settings.line_height * no_lines)
 		message_text:set_kern(message_text:kern())
-		msg_panel:set_h(HUDChat.LINE_HEIGHT * no_lines)
-		msg_panel_bg:set_h(HUDChat.LINE_HEIGHT * no_lines)
+		msg_panel:set_h(self._settings.line_height * no_lines)
+		msg_panel_bg:set_h(self._settings.line_height * no_lines)
 		
 		self._total_message_lines = self._total_message_lines + no_lines
 		table.insert(self._messages, { panel = msg_panel, name = name, lines = no_lines })
@@ -365,10 +372,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		text:replace_text(s)
 		
 		local lbs = text:line_breaks()
-		if #lbs <= HUDChat.MAX_INPUT_LINES then
+		if #lbs <= self._settings.max_input_lines then
 			self:_set_input_lines(#lbs)
 		else
-			local s = lbs[HUDChat.MAX_INPUT_LINES + 1]
+			local s = lbs[self._settings.max_input_lines + 1]
 			local e = utf8.len(text:text())
 			text:set_selection(s, e)
 			text:replace_text("")
@@ -392,8 +399,8 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		if no_lines ~= self._current_input_lines then
 			no_lines = math.max(no_lines, 1)
 			self._current_input_lines = no_lines
-			self._input_panel:set_h(no_lines * HUDChat.LINE_HEIGHT)
-			self._input_panel:child("input_text"):set_h(no_lines * HUDChat.LINE_HEIGHT)
+			self._input_panel:set_h(no_lines * self._settings.line_height)
+			self._input_panel:child("input_text"):set_h(no_lines * self._settings.line_height)
 			self._input_panel:set_bottom(self._panel:h())
 			self._panel:child("output_panel"):set_bottom(self._input_panel:top())
 		end
@@ -443,9 +450,9 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			elseif self._key_pressed == Idstring("down") then
 				self:_change_line_offset(-1)
 			elseif self._key_pressed == Idstring("page up") then
-				self:_change_line_offset(HUDChat.MAX_OUTPUT_LINES - self._current_input_lines)
+				self:_change_line_offset(self._settings.max_output_lines - self._current_input_lines)
 			elseif self._key_pressed == Idstring("page down") then
-				self:_change_line_offset(-(HUDChat.MAX_OUTPUT_LINES - self._current_input_lines))
+				self:_change_line_offset(-(self._settings.max_output_lines - self._current_input_lines))
 			else
 				self._key_pressed = false
 			end
@@ -503,9 +510,9 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		elseif self._key_pressed == Idstring("down") then
 			self:_change_line_offset(-1)
 		elseif self._key_pressed == Idstring("page up") then
-			self:_change_line_offset(HUDChat.MAX_OUTPUT_LINES - self._current_input_lines)
+			self:_change_line_offset(self._settings.max_output_lines - self._current_input_lines)
 		elseif self._key_pressed == Idstring("page down") then
-			self:_change_line_offset(-(HUDChat.MAX_OUTPUT_LINES - self._current_input_lines))
+			self:_change_line_offset(-(self._settings.max_output_lines - self._current_input_lines))
 		elseif self._key_pressed == Idstring("end") then
 			text:set_selection(n, n)
 		elseif self._key_pressed == Idstring("home") then
@@ -524,7 +531,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 
 	function HUDChat:_change_line_offset(diff)
 		if diff ~= 0 then
-			self:_set_line_offset(math.clamp(self._current_line_offset + diff, 0, math.max(self._total_message_lines - HUDChat.MAX_OUTPUT_LINES + self._current_input_lines - 1, 0)))
+			self:_set_line_offset(math.clamp(self._current_line_offset + diff, 0, math.max(self._total_message_lines - self._settings.max_output_lines + self._current_input_lines - 1, 0)))
 		end
 	end
 	
@@ -536,7 +543,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 
 	function HUDChat:_on_focus(...)
-		if not self._mouse_connected and HUDChat.MOUSE_SUPPORT then
+		if not self._mouse_connected and self._settings.mouse_support then
 			self:connect_mouse()
 		end
 		
@@ -544,7 +551,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 	
 	function HUDChat:_loose_focus(...)
-		if HUDChat.MOUSE_SUPPORT then
+		if self._settings.mouse_support then
 			self:disconnect_mouse()
 		end
 		

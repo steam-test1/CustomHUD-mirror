@@ -1,7 +1,13 @@
 {
 	"customHUD_menu_main_title" : "Custom HUD options",
 	"customHUD_menu_main_desc" : "",
-	"customHUD_menu_teammatepanels_title" : "Teammate/Player Panels",
+	"customHUD_menu_enable_teammatepanels_title" : "Enable teammate panels",
+	"customHUD_menu_enable_teammatepanels_desc" : "",
+	"customHUD_menu_enable_chat_title" : "Enable custom chat box",
+	"customHUD_menu_enable_chat_desc" : "",
+	"customHUD_menu_hudchat_title" : "Custom chat box settings",
+	"customHUD_menu_hudchat_desc" : "",
+	"customHUD_menu_teammatepanels_title" : "Teammate/Player Panels Settings",
 	"customHUD_menu_teammatepanels_desc" : "",
 	"customHUD_menu_player_title" : "Player panel",
 	"customHUD_menu_player_desc" : "",
@@ -60,5 +66,18 @@
 	"customHUD_menu_weapon_fire_mode_desc" : "",
 	"customHUD_menu_weapon_fire_mode_title" : "Show Fire Mode",
 	"customHUD_menu_weapon_icon_desc" : "",
-	"customHUD_menu_weapon_icon_title" : "Show Weapon Icon"
+	"customHUD_menu_weapon_icon_title" : "Show Weapon Icon",
+	
+	"customHUD_menu_line_height_desc" : "",
+	"customHUD_menu_line_height_title" : "Line height",
+	"customHUD_menu_width_desc" : "",
+	"customHUD_menu_width_title" : "Box width",
+	"customHUD_menu_max_output_lines_desc" : "",
+	"customHUD_menu_max_output_lines_title" : "Max received message lines",
+	"customHUD_menu_max_input_lines_desc" : "",
+	"customHUD_menu_max_input_lines_title" : "Max input lines"
+	"customHUD_menu_x_offset_desc" : "",
+	"customHUD_menu_x_offset_title" : "Horizontal position"
+	"customHUD_menu_y_offset_desc" : "",
+	"customHUD_menu_y_offset_title" : "Vertical position"
 }

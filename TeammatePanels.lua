@@ -1,7 +1,8 @@
+if not CustomHUDMenu.settings.enable_teammatepanels then return end
+
 --TODO: Setting update for interaction, but probably not necessary as they are temporary anyway
 --TODO: Clean up interaction activation/deactivation animation, probably a lot of unnecessary rearranges going on
 --TODO: Add back the interaction progress bar bitmap
-
 
 printf = printf or function(...) end
 
@@ -17,7 +18,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._left_align = alignment == "left"
 		self._listeners = {}
 		self._all_components = {}
-		self._settings = HUDTeammateCustomMenu.SETTINGS[is_player and "player" or "teammate"]
+		self._settings = CustomHUDMenu.settings.teammatepanels[is_player and "player" or "teammate"]
 		self._id = id
 		self._is_player = is_player
 		self._next_latency_update_t = 0
@@ -1997,7 +1998,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._weapons = {}
 		self._aggregate_ammo = {}
 		self._settings = settings
-		self._weapon_count = HUDTeammateCustomMenu.SETTINGS.MAX_WEAPONS
+		self._weapon_count = CustomHUDMenu.settings.teammatepanels.MAX_WEAPONS
 		self._event_callbacks = {
 			weapon_fire_mode = "set_fire_mode",
 			weapon = "set_weapon",
