@@ -151,11 +151,11 @@ Hooks:Add("MenuManagerPopulateCustomMenus", "MenuManagerPopulateCustomMenus_Cust
 				default_value_clbk = default_value_hudchat_settings,
 				{ "line_height", "slider", { min = 5, max = 25, step = 1, round = true }},
 				{ "width", "slider", { min = 50, max = 500, step = 10, round = true }},
-				{ "max_output_lines", "slider", { min = 1, max = 20, step = 1, round = true }},
-				{ "max_input_lines", "slider", { min = 1, max = 20, step = 1, round = true }},
+				{ "height", "slider", { min = 50, max = 500, step = 10, round = true }},
 				{ "x_offset", "slider", { min = 0, max = 100, step = 1 }},
 				{ "y_offset", "slider", { min = 0, max = 100, step = 1 }},
-				--{ "mouse_support", "toggle" },
+				{ "fade_delay", "slider", { min = 1, max = 25, step = 1 }},
+				{ "use_mouse", "toggle" },
 			}
 		},
 	}
@@ -283,17 +283,16 @@ CustomHUDMenu = {
 		},
 		
 		hudchat = {
-			line_height = 15,			--Size of each line in chat (and hence the text size)
+			line_height = 12,			--Size of each line in chat (and hence the text size)
 			width = 350,				--Width of the chat window
-			max_output_lines = 5,	--Number of chat lines to show
-			max_input_lines = 5,		--Number of lines of text you can type
-			mouse_support = false,	--For scolling and stuff. Experimental, you have been warned
-			x_offset = 0,				--% offset from left of HUD panel
-			y_offset = 0.5,			--% offset from top of HUD panel
+			height = 100,				--Height of the chat window
+			use_mouse = false,		--For scolling and stuff. Experimental, you have been warned
+			x_offset = 100,			--% offset from left of HUD panel
+			y_offset = 50,				--% offset from top of HUD panel
+			fade_delay = 6,			--Fade delay for chat window after inactivity
 		},
 	},
 	
-
 	save_settings = function(force)
 		if force or CustomHUDMenu.setting_changed then
 			local file = io.open(settings_file, "w+")

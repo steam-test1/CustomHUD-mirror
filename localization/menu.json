@@ -72,12 +72,14 @@
 	"customHUD_menu_line_height_title" : "Line height",
 	"customHUD_menu_width_desc" : "",
 	"customHUD_menu_width_title" : "Box width",
-	"customHUD_menu_max_output_lines_desc" : "",
-	"customHUD_menu_max_output_lines_title" : "Max received message lines",
-	"customHUD_menu_max_input_lines_desc" : "",
-	"customHUD_menu_max_input_lines_title" : "Max input lines"
+	"customHUD_menu_height_desc" : "",
+	"customHUD_menu_height_title" : "Box height",
 	"customHUD_menu_x_offset_desc" : "",
 	"customHUD_menu_x_offset_title" : "Horizontal position"
 	"customHUD_menu_y_offset_desc" : "",
 	"customHUD_menu_y_offset_title" : "Vertical position"
+	"customHUD_menu_fade_delay_desc" : "",
+	"customHUD_menu_fade_delay_title" : "Fade delay"
+	"customHUD_menu_use_mouse_desc" : "",
+	"customHUD_menu_use_mouse_title" : "Enable mouse"
 }
