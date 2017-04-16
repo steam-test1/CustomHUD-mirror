@@ -36,6 +36,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		}
 		
 		self._panel = self._hud_panel:panel({
+			name = "chat_panel",
 			h = self._settings.height,
 			w = self._settings.width,
 			alpha = 0,
@@ -138,6 +139,9 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			self._settings.y_offset = settings.y_offset
 			self:_update_position()
 		end
+		
+		self._settings.fade_delay = settings.fade_delay
+		self._settings.use_mouse = settings.use_mouse
 	end
 	
 	function HUDChat:set_position(x, y)
@@ -199,7 +203,9 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		self:_add_message(msg)
 		
 		if not self._focus then
+			self._panel:stop()
 			self:_do_fade_in()
+			self:_do_fade_out()
 		end
 	end
 	
@@ -298,6 +304,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			
 			self._focus_indicator:set_visible(true)
 			self:_show_caret(true)
+			self._panel:stop()
 			self:_do_fade_in()
 			
 			self:_connect_keyboard()
@@ -522,6 +529,12 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		managers.chat:unregister_receiver(self._channel_id, self)
 	end
 	
+	function HUDChat:clear()
+		self:_clear_input()
+		self:_loose_focus()
+		managers.hud:set_chat_focus(false)
+	end
+	
 	function HUDChat:_show_caret(state)
 		if state then
 			self:_update_caret()
@@ -542,18 +555,21 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 	
 	function HUDChat:_do_fade_in()
-		self._panel:stop()
 		self._panel:animate(function(o)
 			local t = (1 - self._panel:alpha()) * 0.25
 			self._panel:set_visible(true)
 			over(t, function(r)
 				self._panel:set_alpha(r)
 			end)
+			self._panel:set_alpha(1)
+		
+			if not self._focus then
+				self:_do_fade_out()
+			end
 		end)
 	end
-	
+
 	function HUDChat:_do_fade_out()
-		self._panel:stop()
 		self._panel:animate(function(o)
 			wait(self._settings.fade_delay)
 			local t = self._panel:alpha() * 0.25
@@ -561,6 +577,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 				self._panel:set_alpha(1-r)
 			end)
 			self._panel:set_visible(false)
+			self._panel:set_alpha(0)
 		end)
 	end
 	
@@ -874,6 +891,11 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			elseif self._arrow_right:inside(x, y) then
 				self._panel:animate(callback(self, self, "_update"), "perform_scroll_horizontal", -1)
 				return true
+			elseif self._view_panel:inside(x, y) then
+				self._grabbed_view_panel = true
+				self._current_x = x
+				self._current_y = y
+				return true
 			end
 		end
 	end
@@ -881,9 +903,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	function ScrollablePanelNew:mouse_released(button, x, y)
 		self._panel:stop()
 		
-		if self._grabbed_vertical_bar or self._grabbed_horizontal_bar then
+		if self._grabbed_vertical_bar or self._grabbed_horizontal_bar or self._grabbed_view_panel then
 			self._grabbed_vertical_bar = false
 			self._grabbed_horizontal_bar = false
+			self._grabbed_view_panel = false
 			return true
 		end
 	end
@@ -897,11 +920,25 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			self:scroll_with_bar_horizontal(x, self._current_x)
 			self._current_x = x
 			return true, "grab"
+		elseif self._grabbed_view_panel then
+			self:_move_chatbox(x, y)
+			self._current_x = x
+			self._current_y = y
+			return true, "grab"
 		--elseif self._scroll_bar:visible() and self._scroll_bar:inside(x, y) then
 		--	return true, "hand"
 		--elseif self._arrow_up:inside(x, y) or self._arrow_down:inside(x, y) or self._arrow_left:inside(x, y) or self._arrow_right:inside(x, y) then
 		--	return true, "link"
 		end
+	end
+	
+	function ScrollablePanelNew:_move_chatbox(x, y)
+		local dx = x - self._current_x
+		local dy = y - self._current_y
+		local tx = math.clamp(self._parent:x() + dx, 0, self._parent:parent():w() - self._parent:w())
+		local ty = math.clamp(self._parent:y() + dy, 0, self._parent:parent():h() - self._parent:h())
+		
+		self._parent:set_position(tx, ty)
 	end
 	
 	function ScrollablePanelNew:_update(o, clbk, dir)
