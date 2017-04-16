@@ -43,6 +43,20 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			visible = false,
 		})
 		
+		local texture, texture_rect = tweak_data.hud_icons:get_icon_data("pd2_generic_interact")
+		self._resize_icon = self._panel:bitmap({
+			texture = texture,
+			texture_rect = texture_rect,
+			h = 10,
+			w = 10,
+		})
+		self._resize_icon:set_bottom(self._panel:h())
+		self._resize_icon:set_right(self._panel:w())
+		
+		local fullscreen = managers.hud:script(PlayerBase.PLAYER_INFO_HUD_FULLSCREEN_PD2)
+		self._x_offset = (fullscreen.panel:w() - self._hud_panel:w()) / 2
+		self._y_offset = (fullscreen.panel:h() - self._hud_panel:h()) / 2
+		
 		self:_create_output_panel()
 		self:_create_input_panel()
 		self:_update_position()
@@ -50,7 +64,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	
 	function HUDChat:_create_input_panel()
 		self._input_panel = self._panel:panel({ 
-			w = self._settings.width, 
+			w = self._settings.width - self._resize_icon:w(), 
 			h = self._settings.line_height,
 		})
 		self._input_panel:set_bottom(self._panel:h())
@@ -100,7 +114,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	end
 	
 	function HUDChat:_create_output_panel()
-		self._output_panel = ScrollablePanelCustom:new(self._hud_panel, self._panel, { 
+		self._output_panel = ScrollablePanelNew:new(self._panel, { 
 			name = "output_panel",
 			w = self._settings.width,
 			h = self._settings.height - self._settings.line_height,
@@ -157,9 +171,11 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	function HUDChat:_update_chatbox_size()
 		self._panel:set_size(self._settings.width, self._settings.height)
 		
-		self._input_panel:set_w(self._settings.width)
+		self._input_panel:set_w(self._settings.width - self._resize_icon:w())
 		self._input_panel:set_bottom(self._panel:h())
 		self._input_text:set_w(self._input_panel:w() - self._input_prompt:w())
+		self._resize_icon:set_left(self._input_panel:right())
+		self._resize_icon:set_bottom(self._input_panel:bottom())
 		self:_update_output_panel_size()
 	end
 	
@@ -464,9 +480,9 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			self._mouse_connected = true
 			
 			managers.mouse_pointer:use_mouse({
-				mouse_move = function(_, x, y) self._output_panel:mouse_event("mouse_moved", nil, x, y) end,
-				mouse_press = function(_, k, x, y) self._output_panel:mouse_event("mouse_pressed", k, x, y) end,
-				mouse_release = function(_, k, x, y) self._output_panel:mouse_event("mouse_released", k, x, y) end,
+				mouse_move = function(_, x, y) self:mouse_event("mouse_moved", nil, x, y) end,
+				mouse_press = function(_, k, x, y) self:mouse_event("mouse_pressed", k, x, y) end,
+				mouse_release = function(_, k, x, y) self:mouse_event("mouse_released", k, x, y) end,
 				--mouse_click = function(...) mouse_clicked(...) end,
 				id = "ingame_chat_mouse",
 			})
@@ -581,6 +597,94 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		end)
 	end
 	
+	function HUDChat:mouse_event(event, button, x, y)
+		return self[event](self, button, x - self._x_offset, y - self._y_offset)
+	end
+	
+	function HUDChat:mouse_moved(button, x, y)
+		local output_result, output_type = self._output_panel:mouse_moved(nil, x, y)
+		
+		if output_result then
+			return output_result, output_type
+		elseif self._grabbed_resize_icon or self._grabbed_panel then
+			local dx = x - self._current_x
+			local dy = y - self._current_y
+			
+			if self._grabbed_resize_icon then
+				local w = math.clamp(dx + self._ghost_panel:w(), 100, 800)
+				local h = math.clamp(dy + self._ghost_panel:h(), 100, 800)
+				
+				if w + self._ghost_panel:x() > self._hud_panel:w() then
+					w = self._hud_panel:w() - self._ghost_panel:x()
+				end
+				if h + self._ghost_panel:y() > self._hud_panel:h() then
+					h = self._hud_panel:h() - self._ghost_panel:y()
+				end
+				
+				self._ghost_panel:set_size(w, h)
+			else
+				local tx = math.clamp(self._ghost_panel:x() + dx, 0, self._hud_panel:w() - self._ghost_panel:w())
+				local ty = math.clamp(self._ghost_panel:y() + dy, 0, self._hud_panel:h() - self._ghost_panel:h())
+				self._ghost_panel:set_position(tx, ty)
+			end
+			
+			self._current_x = x
+			self._current_y = y
+			return true, "grab"
+		end
+	end
+	
+	function HUDChat:mouse_pressed(button, x, y)
+		if self._output_panel:mouse_pressed(button, x, y) then
+			return true
+		elseif button == Idstring("0") then
+			if self._resize_icon:inside(x, y) then
+				self._grabbed_resize_icon = true
+				self._current_x = x
+				self._current_y = y
+				self._ghost_panel = self._hud_panel:panel({ x = self._panel:x(), y = self._panel:y(), w = self._panel:w(), h = self._panel:h(), layer = 10000 })
+				self._ghost_panel:rect({ valign = "grow", halign = "grow", alpha = 0.25 })
+				return true
+			elseif self._panel:inside(x, y) then
+				self._grabbed_panel = true
+				self._current_x = x
+				self._current_y = y
+				self._ghost_panel = self._hud_panel:panel({ x = self._panel:x(), y = self._panel:y(), w = self._panel:w(), h = self._panel:h(), layer = 10000 })
+				self._ghost_panel:rect({ valign = "grow", halign = "grow", alpha = 0.25 })
+				return true
+			end
+		end
+	end
+
+	function HUDChat:mouse_released(button, x, y)
+		if self._output_panel:mouse_released(button, x, y) then
+			return true
+		elseif button == Idstring("0") then
+			if self._grabbed_panel then
+				self._grabbed_panel = false
+				if alive(self._ghost_panel) then
+					CustomHUDMenu.settings.hudchat.x_offset = self._ghost_panel:x() * 100 / (self._hud_panel:w() - self._ghost_panel:w())
+					CustomHUDMenu.settings.hudchat.y_offset = self._ghost_panel:y() * 100 / (self._hud_panel:h() - self._ghost_panel:h())
+					CustomHUDMenu.save_settings(true)
+					self:change_settings(CustomHUDMenu.settings.hudchat)
+					self._hud_panel:remove(self._ghost_panel)
+				end
+				return true
+			elseif self._grabbed_resize_icon then
+				self._grabbed_resize_icon = false
+				if alive(self._ghost_panel) then
+					CustomHUDMenu.settings.hudchat.width = self._ghost_panel:w()
+					CustomHUDMenu.settings.hudchat.height = self._ghost_panel:h()
+					CustomHUDMenu.settings.hudchat.x_offset = self._panel:x() * 100 / (self._hud_panel:w() - self._ghost_panel:w())
+					CustomHUDMenu.settings.hudchat.y_offset = self._panel:y() * 100 / (self._hud_panel:h() - self._ghost_panel:h())
+					CustomHUDMenu.save_settings(true)
+					self:change_settings(CustomHUDMenu.settings.hudchat)
+					self._hud_panel:remove(self._ghost_panel)
+				end
+				return true
+			end
+		end
+	end
 	
 	
 	ScrollablePanelNew = ScrollablePanelNew or class()
@@ -591,7 +695,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		self._parent = parent
 		
 		self._panel = parent:panel({
-			name = params.name,
+			name = params.name or "scroll_panel_main",
 			x = params.x or 0,
 			y = params.y or 0,
 		})
@@ -891,23 +995,19 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			elseif self._arrow_right:inside(x, y) then
 				self._panel:animate(callback(self, self, "_update"), "perform_scroll_horizontal", -1)
 				return true
-			elseif self._view_panel:inside(x, y) then
-				self._grabbed_view_panel = true
-				self._current_x = x
-				self._current_y = y
-				return true
 			end
 		end
 	end
 	
 	function ScrollablePanelNew:mouse_released(button, x, y)
-		self._panel:stop()
-		
-		if self._grabbed_vertical_bar or self._grabbed_horizontal_bar or self._grabbed_view_panel then
-			self._grabbed_vertical_bar = false
-			self._grabbed_horizontal_bar = false
-			self._grabbed_view_panel = false
-			return true
+		if button == Idstring("0") then
+			self._panel:stop()
+			
+			if self._grabbed_vertical_bar or self._grabbed_horizontal_bar or self._grabbed_view_panel then
+				self._grabbed_vertical_bar = false
+				self._grabbed_horizontal_bar = false
+				return true
+			end
 		end
 	end
 	
@@ -920,11 +1020,6 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			self:scroll_with_bar_horizontal(x, self._current_x)
 			self._current_x = x
 			return true, "grab"
-		elseif self._grabbed_view_panel then
-			self:_move_chatbox(x, y)
-			self._current_x = x
-			self._current_y = y
-			return true, "grab"
 		--elseif self._scroll_bar:visible() and self._scroll_bar:inside(x, y) then
 		--	return true, "hand"
 		--elseif self._arrow_up:inside(x, y) or self._arrow_down:inside(x, y) or self._arrow_left:inside(x, y) or self._arrow_right:inside(x, y) then
@@ -932,33 +1027,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		end
 	end
 	
-	function ScrollablePanelNew:_move_chatbox(x, y)
-		local dx = x - self._current_x
-		local dy = y - self._current_y
-		local tx = math.clamp(self._parent:x() + dx, 0, self._parent:parent():w() - self._parent:w())
-		local ty = math.clamp(self._parent:y() + dy, 0, self._parent:parent():h() - self._parent:h())
-		
-		self._parent:set_position(tx, ty)
-	end
-	
 	function ScrollablePanelNew:_update(o, clbk, dir)
 		while true do
 			self[clbk](self, self.SCROLL_SPEED * coroutine.yield() * 5, dir)
 		end
-	end
-	
-	
-	ScrollablePanelCustom = ScrollablePanelCustom or class(ScrollablePanelNew)
-	function ScrollablePanelCustom:init(hud_panel, ...)
-		ScrollablePanelCustom.super.init(self, ...)
-		
-		local fullscreen = managers.hud:script(PlayerBase.PLAYER_INFO_HUD_FULLSCREEN_PD2)
-		self._x_offset = (fullscreen.panel:w() - hud_panel:w()) / 2
-		self._y_offset = (fullscreen.panel:h() - hud_panel:h()) / 2
-	end
-	
-	function ScrollablePanelCustom:mouse_event(event, button, x, y)
-		return self[event](self, button, x - self._x_offset, y - self._y_offset)
 	end
 	
 end
