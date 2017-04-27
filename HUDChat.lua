@@ -121,7 +121,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 		})
 		self._output_panel:set_content_size(self._panel:w() - ScrollablePanelNew.SCROLL_PANEL_WIDTH, 0)
 		
-		local bg = self._output_panel:content_panel():gradient({
+		local bg = self._output_panel:view_panel():gradient({
 			--gradient_points = { 0, Color.white:with_alpha(0), 0.2, Color.white:with_alpha(0.25), 1, Color.white:with_alpha(0) },
 			--gradient_points = { 0, Color.white:with_alpha(0.4), 0.2, Color.white:with_alpha(0.3), 1, Color.white:with_alpha(0.2) },
 			gradient_points = { 0, Color.white:with_alpha(0.3), 0.3, Color.white:with_alpha(0.1), 0.5, Color.white:with_alpha(0.2) , 0.7, Color.white:with_alpha(0.1), 1, Color.white:with_alpha(0.3) },
@@ -129,6 +129,7 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 			valign = "grow",
 			halign = "grow",
 			blend_mode = "sub",
+			alpha = 0.25,
 		})
 	end
 	
@@ -799,6 +800,10 @@ if RequiredScript == "lib/managers/hud/hudchat" then
 	
 	function ScrollablePanelNew:panel()
 		return self._panel
+	end
+	
+	function ScrollablePanelNew:view_panel()
+		return self._view_panel
 	end
 	
 	function ScrollablePanelNew:content_panel()
