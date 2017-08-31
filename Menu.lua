@@ -209,8 +209,10 @@ Hooks:Add("MenuManagerPopulateCustomMenus", "MenuManagerPopulateCustomMenus_Cust
 		CustomHUDMenu.save_settings()
 	end
 	
-	initialize_menu("main", main_menu)
-	finalize_menu("main", main_menu, "lua_mod_options_menu", back_clbk)
+	if nodes.blt_options then
+		initialize_menu("main", main_menu)
+		finalize_menu("main", main_menu, "blt_options", back_clbk)
+	end
 end)
 
 Hooks:Add("LocalizationManagerPostInit", "LocalizationManagerPostInit_CustomHUD_localization", function(self)

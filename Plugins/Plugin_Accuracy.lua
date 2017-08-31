@@ -29,7 +29,7 @@ if RequiredScript == "lib/managers/hudmanagerpd2" then
 	HUDManager.ACCURACY_PLUGIN = true
 
 	HUDManager.set_teammate_accuracy = HUDManager.set_teammate_accuracy or function(self, i, value)
-		self._teammate_panels[i]:set_accuracy(value)
+		--TODO
 	end
 	
 	HUDManager.set_teammate_weapon_accuracy = HUDManager.set_teammate_weapon_accuracy or function(self, i, slot, value)

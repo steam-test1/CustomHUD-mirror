@@ -947,8 +947,9 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			
 			for sub_tree = 1, 3, 1 do
 				local skills = data[(tree-1) * 3 + sub_tree]
-				skill_string = string.format("%s%02d%s", skill_string, tonumber(skills), sub_tree < 3 and "|" or "")
-				if tonumber(skills) > 0 then
+				local skills_num = tonumber(skills) or 0
+				skill_string = string.format("%s%02d%s", skill_string, skills_num, sub_tree < 3 and "|" or "")
+				if skills_num > 0 then
 					tree_has_points = true
 				end
 			end
