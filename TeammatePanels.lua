@@ -1235,7 +1235,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._health_radial = self._panel:bitmap({
 			name = "health_radial",
 			texture = "guis/textures/pd2/hud_health",
-			texture_rect = { 64, 0, -64, 64 },
+			texture_rect = { 128, 0, -128, 128 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			alpha = 0.6,
@@ -1248,7 +1248,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._health_radial_old = self._panel:bitmap({
 			name = "health_radial_old",
 			texture = "guis/textures/pd2/hud_health",
-			texture_rect = { 64, 0, -64, 64 },
+			texture_rect = { 128, 0, -128, 128 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			alpha = 0.4,
@@ -1261,7 +1261,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._stored_health_radial = self._panel:bitmap({
 			name = "stored_health_radial",
 			texture = "guis/textures/pd2/hud_health",
-			texture_rect = { 64, 0, -64, 64 },
+			texture_rect = { 128, 0, -128, 128 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			color = Color(0, 0, 0),
@@ -1274,7 +1274,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._armor_radial = self._panel:bitmap({
 			name = "armor_radial",
 			texture = "guis/textures/pd2/hud_shield",
-			texture_rect = { 64, 0, -64, 64 },
+			texture_rect = { 128, 0, -128, 128 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			color = Color(1, 1, 1),
@@ -1287,7 +1287,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._stamina_radial = self._panel:bitmap({
 			name = "stamina_radial",
 			texture = "guis/textures/pd2/hud_shield",
-			texture_rect = { 64, 0, -64, 64 },
+			texture_rect = { 128, 0, -128, 128 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			color = Color(1, 0, 0),
@@ -1384,7 +1384,7 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 		self._custom_radial_icon = self._panel:bitmap({
 			name = "custom_radial_icon",
 			texture = "guis/textures/pd2/hud_swansong",
-			texture_rect = { 0, 0, 64, 64 },
+			--texture_rect = { 0, 0, 64, 64 },
 			render_template = "VertexColorTexturedRadial",
 			blend_mode = "add",
 			color = Color(1, 0, 0, 0),
@@ -1419,6 +1419,18 @@ if RequiredScript == "lib/managers/hud/hudteammate" then
 			visible = false,
 			layer = self._condition_icon:layer(),
 		})
+		
+		self._radial_ability_icon = self._panel:bitmap({
+			blend_mode = "add",
+			name = "ability_icon",
+			visible = false,
+			alpha = 1,
+			layer = 5,
+			w = size * 0.5,
+			h = size * 0.5
+		})
+
+		self._radial_ability_icon:set_center(self._radial_ability:center())
 		
 		local tweak = tweak_data.upgrades
 		self._max_absorb = tweak.cocaine_stacks_dmg_absorption_value * tweak.values.player.cocaine_stack_absorption_multiplier[1] * tweak.max_total_cocaine_stacks  / tweak.cocaine_stacks_convert_levels[2]
